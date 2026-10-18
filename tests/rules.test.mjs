@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {initial,actions,apply,moves,placements,connected,neighbors,pressure,bot,TYPES} from '../public/engine.js';
+const play=(s,bug,to)=>apply(s,{type:'place',bug,to});
+function fixture(entries,turn=0){const s=initial();s.turn=turn;s.turns=[4,4];s.reserves[0].Q=0;s.reserves[1].Q=0;for(const [k,type,owner=0,layers=1]of entries)s.board[k]=Array.from({length:layers},(_,i)=>({type:i===layers-1?type:'A',owner,id:k+'-'+i}));return s;}
+test('Opening has one highlighted location and all five species',()=>{const s=initial();assert.deepEqual(placements(s),['0,0']);assert.equal(actions(s).length,5);assert.equal(Object.values(s.reserves[0]).reduce((a,b)=>a+b),11);});
+test('Second player may touch the first tile, then only friendly tiles',()=>{let s=play(initial(),'A','0,0');assert.equal(placements(s).length,6);s=play(s,'A','1,0');assert.deepEqual(new Set(placements(s)),new Set(['-1,0','0,-1','-1,1']));});
+test('Queen must be placed on the fourth personal turn',()=>{const s=initial();s.turns[0]=3;assert(actions(s).every(a=>a.bug==='Q'));assert.throws(()=>play(s,'A','0,0'));});
+test('No movement before your own queen arrives',()=>{let s=play(initial(),'A','0,0');s=play(s,'A','1,0');assert.deepEqual(moves(s,'0,0'),[]);});
+test('A bridge cannot disconnect the hive in transit',()=>{const s=fixture([['0,0','A'],['-1,0','Q'],['1,0','Q',1]]);assert.deepEqual(moves(s,'0,0'),[]);});
+test('Queen slides one step along the hive',()=>{const s=fixture([['0,0','Q'],['1,0','Q',1]]);assert.deepEqual(new Set(moves(s,'0,0')),new Set(['0,1','1,-1']));});
+test('Ant travels any distance around the perimeter',()=>{const s=fixture([['0,0','A'],['1,0','Q',1]]);assert.equal(moves(s,'0,0').length,5);assert(moves(s,'0,0').includes('2,0'));});
+test('Spider travels exactly three steps without revisiting',()=>{const s=fixture([['0,0','S'],['1,0','Q',1]]);assert.deepEqual(moves(s,'0,0'),['2,0']);});
+test('Grasshopper jumps to first empty cell in a straight line',()=>{const s=fixture([['0,0','G'],['1,0','A',1],['2,0','Q',1]]);assert.deepEqual(moves(s,'0,0'),['3,0']);});
+test('Grasshopper cannot jump empty space',()=>{const s=fixture([['0,0','G'],['1,0','Q',1]]);assert(!moves(s,'0,0').includes('-1,0'));});
+test('Beetle climbs onto another tile and controls its colour',()=>{const s=fixture([['0,0','B'],['1,0','Q',1]]);const n=apply(s,{type:'move',from:'0,0',to:'1,0'});assert.equal(n.board['1,0'].length,2);assert.equal(n.board['1,0'].at(-1).owner,0);assert.deepEqual(moves(n,'1,0'),[]);});
+test('Beetle can climb down and reveal the covered piece',()=>{const s=fixture([['0,0','B',0,2],['1,0','Q',1]]);const n=apply(s,{type:'move',from:'0,0',to:'0,1'});assert.equal(n.board['0,0'].length,1);assert.equal(n.board['0,1'][0].type,'B');});
+test('Tall stacks form a gate that a beetle cannot cross',()=>{const s=fixture([['0,0','B'],['1,0','Q',1],['0,1','B',1,2],['1,-1','B',1,2]]);assert(!moves(s,'0,0').includes('1,0'));});
+test('Ground pieces cannot slide through a closed gate',()=>{const s=fixture([['0,0','Q'],['1,0','A',1],['0,1','A',1],['1,-1','A',1]]);assert(!moves(s,'0,0').includes('1,0'));assert(!moves(s,'0,0').includes('1,1'));});
+test('Covering a queen does not remove her surround condition',()=>{const s=fixture([['0,0','Q',0]]);s.board['0,0'].push({type:'B',owner:1});for(const k of neighbors('0,0'))s.board[k]=[{type:'A',owner:1}];assert.equal(pressure(s,0),6);});
+test('Surrounding a queen ends the game; further actions rejected',()=>{const s=fixture([['0,0','Q',1],['1,0','Q'],['1,-1','A'],['0,-1','A'],['-1,0','A'],['-1,1','A'],['1,1','B'],['0,2','A'],['0,3','G']]);const n=apply(s,{type:'move',from:'0,3',to:'0,1'});assert.equal(n.result,0);assert.deepEqual(actions(n),[]);assert.throws(()=>play(n,'S','2,0'));});
+test('Illegal pass and illegal coordinates are rejected',()=>{assert.throws(()=>apply(initial(),{type:'pass'}));assert.throws(()=>play(initial(),'Q','100,100'));});
+test('Moves are immutable and decrement only the moving player reserve',()=>{const s=initial(),n=play(s,'Q','0,0');assert.equal(s.ply,0);assert.equal(s.reserves[0].Q,1);assert.equal(n.reserves[0].Q,0);assert.equal(n.reserves[1].Q,1);assert.equal(n.turn,1);});
+test('Bot self-play preserves a connected hive and legal inventories',()=>{let s=initial();for(let i=0;i<60&&s.result===null;i++){s=apply(s,bot(s));assert(connected(s.board));for(const p of [0,1]){const total=Object.values(s.reserves[p]).reduce((a,b)=>a+b)+Object.values(s.board).flat().filter(t=>t.owner===p).length;assert.equal(total,11);for(const [k,t]of Object.entries(TYPES))assert(s.reserves[p][k]>=0&&s.reserves[p][k]<=t.count);if(s.turns[p]>=4)assert.equal(s.reserves[p].Q,0);}}});
