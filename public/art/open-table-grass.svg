@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 160" fill="none">
+  <defs>
+    <g id="grass">
+      <path fill="#8b9861" opacity=".43" d="M3 12h3V3h3v9h3V7h3v11H0v-6zM6 0h3v3H6z"/>
+      <path fill="#a7ad75" opacity=".3" d="M-8 18h28v3H-8z"/>
+    </g>
+    <g id="tall-grass">
+      <path fill="#8b9861" opacity=".43" d="M3 11h3V4h3v7h3V0h3v11h3v6H0v-6z"/>
+      <path fill="#a7ad75" opacity=".3" d="M-5 17h28v3H-5z"/>
+    </g>
+  </defs>
+  <use href="#grass" x="18" y="5"/>
+  <use href="#tall-grass" x="88" y="6"/>
+  <use href="#grass" x="164" y="5"/>
+  <use href="#tall-grass" x="242" y="6"/>
+  <use href="#tall-grass" x="7" y="57"/>
+  <use href="#grass" x="7" y="100"/>
+  <use href="#grass" x="255" y="53"/>
+  <use href="#tall-grass" x="254" y="100"/>
+  <use href="#tall-grass" x="20" y="134"/>
+  <use href="#grass" x="91" y="133"/>
+  <use href="#tall-grass" x="166" y="134"/>
+  <use href="#grass" x="242" y="133"/>
+</svg>

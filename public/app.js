@@ -8,6 +8,7 @@ const hostGem='<svg class="host-gem" viewBox="0 0 16 18" role="img" aria-label="
 const legalSVG='<svg class="legal-outline" viewBox="0 0 102 116" aria-hidden="true"><polygon points="51,3 99,30 99,86 51,113 3,86 3,30"/></svg>';
 const speciesSVG='<svg class="species-outline" viewBox="0 0 102 116" aria-hidden="true"><path d="M65 20 92 35v46l-41 23-41-23V35l27-15"/></svg>';
 const surroundSVG=filled=>`<svg class="surround-hex ${filled?'filled':''}" viewBox="0 0 14 16" aria-hidden="true"><polygon points="7,1 13,4.5 13,11.5 7,15 1,11.5 1,4.5"/></svg>`;
+const glowSVG='<svg class="tile-glow" viewBox="0 0 102 116" aria-hidden="true"><polygon points="51,0 102,29 102,87 51,116 0,87 0,29"/></svg>';
 function sound(kind='select_001'){if(!muted)new Audio(`/audio/${kind}.ogg`).play().catch(()=>{});}
 function notice(message){$('notice').textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',5000);}
 function now(){return Date.now()+offset;}
@@ -23,7 +24,7 @@ function candidates(){
   return actions(state).filter(a=>selection.kind==='place'?a.type==='place'&&a.bug===selection.bug:selection.kind==='carry'?a.type==='carry'&&a.via===selection.via&&a.from===selection.from:selection.kind==='move'?a.type==='move'&&a.from===selection.from:false);
 }
 function tile(t,classes=''){
-  return `<span class="hex ${t.owner?'dark':''} ${classes}" style="--bug:${TYPES[t.type].color}">${speciesSVG}<span class="tile-letter">${t.type}</span><img src="/art/${t.type}.png" alt=""></span>`;
+  return `<span class="hex ${t.owner?'dark':''} ${classes}" style="--bug:${TYPES[t.type].color}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><img src="/art/${t.type}.png" alt=""></span>`;
 }
 function reserveStack(type,owner,count,selected){
   const depth=Math.max(0,count-1);
@@ -35,6 +36,12 @@ function boardPoints(){
   return [...keys].map(k=>{const[q,r]=xy(k);return [100.459*(q+r/2),87*r];});
 }
 function bounds(){const pts=boardPoints(),xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);return {left:Math.min(...xs)-53,right:Math.max(...xs)+53,top:Math.min(...ys)-60,bottom:Math.max(...ys)+60};}
+// The board fills the table; automatic fitting uses the clear space between overlays.
+function clearBoardArea(){
+  const board=$('board').getBoundingClientRect(),players=$('players').getBoundingClientRect(),controls=document.querySelector('.board-controls').getBoundingClientRect(),turn=document.querySelector('.hand-heading').getBoundingClientRect();
+  const top=Math.max(16,players.bottom-board.top+20,controls.bottom-board.top+12),bottom=Math.max(top+120,turn.top-board.top-16);
+  return {width:board.width-32,height:bottom-top,x:board.width/2,y:(top+bottom)/2};
+}
 function contain(){
   const w=$('board').clientWidth,h=$('board').clientHeight;if(!w||!h)return;
   const b=bounds(),pad=16,max=Math.min(1.8,(w-pad*2)/(b.right-b.left),(h-pad*2)/(b.bottom-b.top));
@@ -52,22 +59,27 @@ function drawBoard(){
   for(const[k,stack]of Object.entries(state.board)){
     const carrySource=selection?.kind==='carry'&&!selection.from&&carryActions(state,selection.via).some(a=>a.from===k);
     const t=stack.at(-1),css=`${t.owner?'dark':''} ${selection?.from===k||selection?.via===k?'selected':''} ${state.last?.to===k?'last':''} ${targets.has(k)||carrySource?'target':''}`;
-    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}" title="${stack.map(p=>`${state.names[p.owner]}: ${TYPES[p.type].name}`).reverse().map(esc).join(' / ')}">${speciesSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" style="background-image:url('/art/${t.type}.png')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
+    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}" title="${stack.map(p=>`${state.names[p.owner]}: ${TYPES[p.type].name}`).reverse().map(esc).join(' / ')}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" style="background-image:url('/art/${t.type}.png')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
   }
   board.innerHTML=html;$('first-hint').hidden=state.ply!==0;
 }
 function fit(){
   if(!state||room?.phase!=='game')return;
+  $('game').style.setProperty('--table-top',`${$('table').getBoundingClientRect().top+window.scrollY}px`);
+  $('game').style.setProperty('--players-height',`${$('players').offsetHeight}px`);
   const b=bounds(),w=$('board').clientWidth,h=$('board').clientHeight;if(!w||!h)return;
-  zoom=Math.min(1,(w-60)/(b.right-b.left+65),(h-45)/(b.bottom-b.top+65));
-  pan={x:-(b.left+b.right)/2*zoom,y:-(b.top+b.bottom)/2*zoom};drawBoard();
+  const clear=clearBoardArea();
+  zoom=Math.max(.04,Math.min(1,(clear.width-28)/(b.right-b.left+65),(clear.height-24)/(b.bottom-b.top+65)));
+  pan={x:clear.x-w/2-(b.left+b.right)/2*zoom,y:clear.y-h/2-(b.top+b.bottom)/2*zoom};
+  $('first-hint').style.top=`${clear.y+84*zoom}px`;drawBoard();
 }
 function renderPlayers(){
   $('players').innerHTML=state.names.map((name,i)=>{
     const empty=room.phase==='lobby'&&room.mode==='online'&&!room.seated[i],count=Object.values(state.reserves[i]).reduce((a,b)=>a+b,0),p=pressure(state,i);
     const enclosure=`<span class="queen-info ${p>=5?'danger':p>=4?'caution':''}" aria-label="Queen surrounded ${p} of 6"><span>${state.reserves[i].Q?'Queen in reserve':'Queen surrounded'}</span><span class="queen-hexes" style="--opponent:${i?'#e8efd6':'#24442e'}">${Array.from({length:6},(_,j)=>surroundSVG(j<p)).join('')}</span></span>`;
     const details=room.phase==='game'?`${tileCount(state)-count} in hive · ${count} in reserve<br>${enclosure}`:empty?'Waiting for a friend':i===room.host?'Table host':room.mode==='bot'?'Practice opponent':room.mode==='hotseat'?'On this screen':'Ready to play';
-    return `<article class="player ${i?'dark':''} ${empty?'empty':''} ${room.phase==='game'&&state.result===null&&state.turn===i?'active':''}"><strong>${i===room.host?hostGem:room.mode==='bot'?BotIcon:''}<span>${esc(empty?'Empty seat':name)}${room.mode==='online'&&i===room.you?' (you)':''}</span></strong><small>${details}</small></article>`;
+    const own=room.mode==='hotseat'?i===state.turn:i===room.you;
+    return `<article class="player ${i?'dark':''} ${empty?'empty':''} ${room.phase==='game'&&state.result===null&&state.turn===i?'active':''}"><strong>${i===room.host?hostGem:room.mode==='bot'?BotIcon:''}<span class="${own&&!empty?'own-name':''}" ${own&&!empty?'aria-label="Your colony"':''}>${esc(empty?'Empty seat':name)}</span></strong><small>${details}</small></article>`;
   }).join('');
 }
 function render(){
@@ -220,6 +232,10 @@ $('classic-rules').onclick=()=>request('settings',{expansions:[]});
 for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{const key=b.dataset.expansion,next=room.expansions.includes(key)?room.expansions.filter(k=>k!==key):[...room.expansions,key];request('settings',{expansions:next});};
 $('bug-guide').innerHTML=Object.entries(TYPES).map(([k,t])=>`<div><img src="/art/${k}.png" alt=""><span><strong>${t.name}</strong>${t.hint}</span></div>`).join('');
 window.addEventListener('resize',()=>room?.phase==='game'&&fit());
+let fitFrame;
+const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
+for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading')])layoutObserver.observe(element);
+document.fonts.ready.then(fit);
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){selection=null;closePanels();if(room)render();}});
 let polling=false;
 setInterval(async()=>{
