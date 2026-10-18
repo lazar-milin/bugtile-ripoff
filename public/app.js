@@ -1,5 +1,6 @@
 import {TYPES,EXPANSIONS,actions,carryActions,top,xy,pressure,tileCount} from './engine.js';
 import {LeaveIcon,ScrollIcon,ClockIcon,BotIcon,UndoIcon,InternetIcon,HotseatIcon} from './icons.js';
+import {createFireflyLights} from './fireflies.js';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const storage={get(k){try{return JSON.parse((k==='room'?sessionStorage:localStorage).getItem('hive-garden:'+k));}catch{return null;}},set(k,v){try{(k==='room'?sessionStorage:localStorage).setItem('hive-garden:'+k,JSON.stringify(v));}catch{}}};
@@ -9,6 +10,14 @@ const legalSVG='<svg class="legal-outline" viewBox="0 0 102 116" aria-hidden="tr
 const speciesSVG='<svg class="species-outline" viewBox="0 0 102 116" aria-hidden="true"><path d="M65 20 92 35v46l-41 23-41-23V35l27-15"/></svg>';
 const surroundSVG=filled=>`<svg class="surround-hex ${filled?'filled':''}" viewBox="0 0 14 16" aria-hidden="true"><polygon points="7,1 13,4.5 13,11.5 7,15 1,11.5 1,4.5"/></svg>`;
 const glowSVG='<svg class="tile-glow" viewBox="0 0 102 116" aria-hidden="true"><polygon points="51,0 102,29 102,87 51,116 0,87 0,29"/></svg>';
+const fireflies=createFireflyLights({onChange:(id,src)=>{
+  for(const node of document.querySelectorAll('[data-firefly]'))if(node.dataset.firefly===id){
+    if(node.tagName==='IMG')node.src=src;else node.style.backgroundImage=`url('${src}')`;
+  }
+}});
+for(const src of ['/art/F.png','/art/F-lit.png']){const preload=new Image();preload.src=src;}
+const artSource=(type,id)=>type==='F'?fireflies.src(id):`/art/${type}.png`;
+const lightAttribute=(type,id)=>type==='F'?`data-firefly="${esc(id)}"`:'';
 function sound(kind='select_001'){if(!muted)new Audio(`/audio/${kind}.ogg`).play().catch(()=>{});}
 function notice(message){$('notice').textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',5000);}
 function now(){return Date.now()+offset;}
@@ -24,7 +33,8 @@ function candidates(){
   return actions(state).filter(a=>selection.kind==='place'?a.type==='place'&&a.bug===selection.bug:selection.kind==='carry'?a.type==='carry'&&a.via===selection.via&&a.from===selection.from:selection.kind==='move'?a.type==='move'&&a.from===selection.from:false);
 }
 function tile(t,classes=''){
-  return `<span class="hex ${t.owner?'dark':''} ${classes}" style="--bug:${TYPES[t.type].color}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><img src="/art/${t.type}.png" alt=""></span>`;
+  const id=`reserve-${t.owner}-${t.type}`;
+  return `<span class="hex ${t.owner?'dark':''} ${classes}" style="--bug:${TYPES[t.type].color}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><img ${lightAttribute(t.type,id)} src="${artSource(t.type,id)}" alt=""></span>`;
 }
 function reserveStack(type,owner,count,selected){
   const depth=Math.max(0,count-1);
@@ -59,7 +69,7 @@ function drawBoard(){
   for(const[k,stack]of Object.entries(state.board)){
     const carrySource=selection?.kind==='carry'&&!selection.from&&carryActions(state,selection.via).some(a=>a.from===k);
     const t=stack.at(-1),css=`${t.owner?'dark':''} ${selection?.from===k||selection?.via===k?'selected':''} ${state.last?.to===k?'last':''} ${targets.has(k)||carrySource?'target':''}`;
-    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}" title="${stack.map(p=>`${state.names[p.owner]}: ${TYPES[p.type].name}`).reverse().map(esc).join(' / ')}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" style="background-image:url('/art/${t.type}.png')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
+    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}" title="${stack.map(p=>`${state.names[p.owner]}: ${TYPES[p.type].name}`).reverse().map(esc).join(' / ')}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" ${lightAttribute(t.type,t.id)} style="background-image:url('${artSource(t.type,t.id)}')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
   }
   board.innerHTML=html;$('first-hint').hidden=state.ply!==0;
 }
@@ -230,7 +240,7 @@ for(const[mode,icon]of [['online',InternetIcon],['hotseat',HotseatIcon],['bot',B
 $('rules-picker').innerHTML='<button id="classic-rules"><strong>Classic</strong><small>The original five bug types</small></button>'+EXPANSIONS.map(k=>`<button data-expansion="${k}"><strong>${TYPES[k].name}</strong><small><span>Adds the ${TYPES[k].name}</span><span class="expansion-tile" aria-hidden="true"><span class="hex neutral" style="--bug:${TYPES[k].color}">${speciesSVG}<img src="/art/${k}.png" alt=""></span></span></small></button>`).join('');
 $('classic-rules').onclick=()=>request('settings',{expansions:[]});
 for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{const key=b.dataset.expansion,next=room.expansions.includes(key)?room.expansions.filter(k=>k!==key):[...room.expansions,key];request('settings',{expansions:next});};
-$('bug-guide').innerHTML=Object.entries(TYPES).map(([k,t])=>`<div><img src="/art/${k}.png" alt=""><span><strong>${t.name}</strong>${t.hint}</span></div>`).join('');
+$('bug-guide').innerHTML=Object.entries(TYPES).map(([k,t])=>`<div><img ${lightAttribute(k,'guide')} src="${artSource(k,'guide')}" alt=""><span><strong>${t.name}</strong>${t.hint}</span></div>`).join('');
 window.addEventListener('resize',()=>room?.phase==='game'&&fit());
 let fitFrame;
 const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});

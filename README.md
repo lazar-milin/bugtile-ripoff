@@ -31,6 +31,8 @@ For two-player testing, open two tabs. Each tab keeps its own seat in session st
 
 Classic provides 11 tiles per player. The engine enforces queen placement by the fourth personal turn, one-hive connectivity, sliding gates, beetle stacks, forced passes, simultaneous surrounds, and threefold repetition. The original opening rule allows placing the Queen first.
 
+Firefly (`F`) takes exactly three sliding steps without revisiting a space. Each player has two. Its tail alternates between the supplied lit and unlit artwork at independent random intervals of 2–20 seconds; the light is cosmetic and does not affect movement.
+
 Each enabled expansion adds one tile per player:
 
 - **Mosquito:** copies adjacent non-Mosquito movement abilities, including the Pillbug carry. While on top of the hive it moves as a Beetle.

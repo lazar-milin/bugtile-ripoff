@@ -4,7 +4,7 @@ export const TYPES={
  A:{name:'Soldier ant',count:3,color:'#577bba',hint:'Slides any distance around the hive.'},
  B:{name:'Beetle',count:2,color:'#a477bd',hint:'One step. Can climb and cover other bugs.'},
  G:{name:'Grasshopper',count:3,color:'#749f47',hint:'Jumps a straight line of bugs to the first empty hex.'},
- S:{name:'Spider',count:2,color:'#cc7956',hint:'Exactly three sliding steps, without retracing.'},
+ F:{name:'Firefly',count:2,color:'#cc7956',hint:'Exactly three sliding steps, without retracing.'},
  M:{name:'Mosquito',count:1,color:'#8897a1',hint:'Copies a touching bug at the start of its move. On a stack it stays a beetle.'},
  L:{name:'Ladybug',count:1,color:'#cb5550',hint:'Exactly three steps: two over occupied hexes, then down to an empty hex.'},
  P:{name:'Pillbug',count:1,color:'#b3a885',hint:'One sliding step, or carry an adjacent single bug across itself to an empty neighbor.'}
@@ -21,7 +21,7 @@ export function normalizeExpansions(value=[]){
  return EXPANSIONS.filter(k=>value.includes(k));
 }
 export function initial(names=['Fern','Moss'],expansions=[]){
- const enabled=normalizeExpansions(expansions),reserve={Q:1,A:3,B:2,G:3,S:2,M:0,L:0,P:0};
+ const enabled=normalizeExpansions(expansions),reserve={Q:1,A:3,B:2,G:3,F:2,M:0,L:0,P:0};
  for(const k of enabled)reserve[k]=1;
  return {board:{},turn:0,turns:[0,0],names:names.map(n=>String(n).trim().slice(0,24)||'Player'),expansions:enabled,reserves:[{...reserve},{...reserve}],ply:0,result:null,log:[],last:null,lastPiece:null,stunnedId:null,repetitions:{}};
 }
@@ -50,7 +50,7 @@ function movementFor(s,b,from,type){
  }else if(type==='Q'||type==='P')steps(from).forEach(n=>out.add(n));
  else if(type==='A'){
   const seen=new Set([from]),todo=[from];while(todo.length)for(const n of steps(todo.pop()))if(!seen.has(n)){seen.add(n);todo.push(n);out.add(n);}
- }else if(type==='S'){
+ }else if(type==='F'){
   const walk=(at,path)=>{if(path.length===4){out.add(at);return;}for(const n of steps(at))if(!path.includes(n))walk(n,[...path,n]);};walk(from,[from]);
  }else if(type==='L'){
   for(const first of neighbors(from))if(height(b,first)&&gate(b,from,first,Math.max(startHeight,height(b,first)))){
