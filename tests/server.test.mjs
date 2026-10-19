@@ -53,3 +53,17 @@ test('A bot reply wakes a waiting state request',async()=>{
     assert.equal(next.state.ply,2);assert(Date.now()-t<2000);
   }finally{config.longPollMs=wait;await close();}
 });
+test('Malformed requests get player-facing messages instead of raw Node errors',async()=>{
+  const {base,call,close}=await open(),error=async r=>({status:r.status,error:(await r.json()).error});
+  try{
+    assert.deepEqual(await error(await fetch(base+'/art/')),{status:404,error:'Not found.'});
+    assert.deepEqual(await error(await fetch(base+'/missing.png')),{status:404,error:'Not found.'});
+    assert.deepEqual(await error(await fetch(base+'/%E0%A4%A')),{status:400,error:'Bad request.'});
+    assert.deepEqual(await error(await fetch(base+'/%00')),{status:400,error:'Bad request.'});
+    for(const body of ['{bad','null','[]'])assert.deepEqual(await error(await fetch(base+'/api/create',{method:'POST',headers:{'Content-Type':'application/json'},body})),{status:400,error:'Expected a JSON request body.'});
+    const host=(await call('create',{})).body,code=host.code;await call('settings',{code,mode:'hotseat'},host.token);const game=(await call('start',{code},host.token)).body;
+    const move=await call('move',{code,version:game.version,action:null},host.token);
+    assert.deepEqual({status:move.status,error:move.body.error},{status:400,error:'That move is not legal. Choose a highlighted hex.'});
+    await call('leave',{code},host.token);
+  }finally{await close();}
+});

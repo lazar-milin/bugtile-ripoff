@@ -23,7 +23,8 @@ export const server=http.createServer(async(req,res)=>{try{
   if(url.pathname.startsWith('/api/')){
     if(req.method==='POST')res.once('finish',wake);
     let data={};
-    if(req.method==='POST'){let body='';for await(const c of req){body+=c;if(body.length>10000)throw Error('Request too large.');}data=JSON.parse(body||'{}');}
+    if(req.method==='POST'){let body='';for await(const c of req){body+=c;if(body.length>10000)throw Error('Request too large.');}
+      try{data=JSON.parse(body||'{}');}catch{data=null;}if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Expected a JSON request body.');}
     else if(req.method!=='GET')return send(res,405,{error:'Method not allowed.'});
     const endpoint=url.pathname.slice(5);
     // Only lobbies whose host is still connected; an abandoned lobby drops off within a minute.
@@ -73,7 +74,13 @@ export const server=http.createServer(async(req,res)=>{try{
   if(!file.startsWith(root+path.sep))return send(res,403,{error:'Forbidden'});
   const bytes=await readFile(file),ext=path.extname(file);
   res.writeHead(200,{'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
-}catch(e){send(res,e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'File not found':e.message});}});
+}catch(e){
+  // Errors thrown on purpose by the rules and table code are written for players; Node's own errors are not.
+  if(e.code==='ENOENT'||e.code==='EISDIR')return send(res,404,{error:'Not found.'});
+  if(e instanceof URIError||e.code==='ERR_INVALID_ARG_VALUE')return send(res,400,{error:'Bad request.'});
+  if(e.constructor===Error&&!e.code)return send(res,400,{error:e.message});
+  console.error(e);send(res,500,{error:'Something went wrong. Try again.'});
+}});
 const ticker=setInterval(()=>{tickTables(rooms,Date.now(),config);wake();},200);ticker.unref();
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   const port=Number(process.env.PORT||3007);
