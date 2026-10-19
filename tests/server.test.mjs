@@ -7,6 +7,27 @@ async function open(){
   return {base,call,close:()=>new Promise(r=>server.close(r))};
 }
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
+
+test('Security headers cover static assets, API replies, errors, HEAD, and revalidation',async()=>{
+  const {base,call,close}=await open();
+  const check=async(path,options={})=>{
+    const res=await fetch(base+path,options);
+    assert.equal(res.headers.get('x-content-type-options'),'nosniff',path);
+    assert.equal(res.headers.get('referrer-policy'),'no-referrer',path);
+    await res.text();return res;
+  };
+  try{
+    for(const path of ['/','/app.js','/art/Q.svg','/fonts/vcr-osd-mono.ttf','/fonts/LICENSE.txt','/api/tables','/missing.svg','/%E0%A4%A'])await check(path);
+    await check('/',{method:'HEAD'});
+    const asset=await check('/art/Q.svg');
+    assert.equal((await check('/art/Q.svg',{headers:{'If-None-Match':asset.headers.get('etag')}})).status,304);
+    assert.equal((await check('/api/create',{method:'POST',body:'{bad'})).status,400);
+    assert.equal((await check('/api/tables',{method:'DELETE'})).status,405);
+    const host=(await call('create',{})).body;
+    const reply=await check('/api/state?code='+host.code,{headers:{Authorization:'Bearer '+host.token}});assert.equal(reply.status,200);
+    await call('leave',{code:host.code},host.token);
+  }finally{await close();}
+});
 test('At the table limit only an abandoned lobby makes room; active lobbies and games are kept',async()=>{
   const {call,close}=await open(),limit=config.maxTables,window=config.openTableMs;config.maxTables=2;config.openTableMs=100;
   const full=async()=>{const r=await call('create',{});assert.equal(r.status,503);assert.equal(r.body.error,'The server is full. Try again later.');};

@@ -35,6 +35,8 @@ Mosquito cannot copy another Mosquito, including a stacked one; an elevated Mosq
 
 Undo is host-configurable in the lobby, author-only, once for two seconds after the latest move and before another move. Undo must restore scores as well as board state. Bot replies wait beyond that window. Timers operate only in online games. Leaving a running online game returns the remaining player to the lobby without awarding a win.
 
+Undo restores the pre-move absolute deadline rather than starting a fresh timer. Time spent making and undoing a move still counts; the next tick handles an already expired restored deadline. Every HTTP response carries X-Content-Type-Options: nosniff and Referrer-Policy: no-referrer, including errors and 304 responses. Preserve the font attribution and published terms in public/fonts/LICENSE.txt.
+
 ## Interface and assets
 
 Preserve the established earth/pixel visual identity. Tile player colours are pale and dark green; the inner outline represents species. Keep reserve stacks countable, letters inside the intact tile border, legal destinations dashed, and special actions above the reserve. Use the existing icon system and bundled artwork; do not modify the separate Birdcard project.
