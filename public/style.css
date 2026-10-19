@@ -152,3 +152,16 @@ main{position:relative;max-width:1500px;margin:auto;padding:14px 32px 30px}.welc
 .table-screen #header.compact-header #mode-label{flex:0 0 auto}
 .table-screen #header.compact-header .header-controls{grid-column:1;width:100%;max-width:100%;justify-content:safe flex-end}
 .table-screen .floating-panel{top:calc(var(--header-height,100px) + 12px);max-height:calc(100dvh - var(--header-height,100px) - 24px)}
+
+/* Keep header controls at one size; change rows instead of shrinking them. */
+#header .expand-control{min-width:47px;height:47px;padding:10px}
+#header .expand-control svg{width:23px;height:23px}
+#header .control-label{font-size:12px}
+#header .help-icon{font-size:24px;line-height:23px;width:23px}
+#header .icon-control{width:34px;height:47px;padding:5px}
+#header .icon-control svg{width:24px;height:24px}
+#header #copy{font-size:12px;min-height:47px;padding:7px 12px;white-space:nowrap}
+#header #copy small{font-size:10px}
+#header .passive-indicator{width:32px;min-width:32px;height:47px}
+#header .passive-indicator svg{width:23px;height:23px}
+#header .passive-indicator .cross-mark{top:10px;left:4px}
