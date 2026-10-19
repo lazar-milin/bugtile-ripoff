@@ -7,17 +7,18 @@ async function open(){
   return {base,call,close:()=>new Promise(r=>server.close(r))};
 }
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
-test('At the table limit the least recently active lobby makes room, but running games never do',async()=>{
-  const {call,close}=await open(),limit=config.maxTables;config.maxTables=2;
+test('At the table limit only an abandoned lobby makes room; active lobbies and games are kept',async()=>{
+  const {call,close}=await open(),limit=config.maxTables,window=config.openTableMs;config.maxTables=2;config.openTableMs=100;
+  const full=async()=>{const r=await call('create',{});assert.equal(r.status,503);assert.equal(r.body.error,'The server is full. Try again later.');};
   try{
-    const first=(await call('create',{})).body;await pause(5);const second=(await call('create',{})).body;await pause(5);
-    await call('state?code='+first.code,null,first.token);
+    const first=(await call('create',{})).body,second=(await call('create',{})).body;await full();
+    await pause(150);await call('state?code='+first.code,null,first.token);
     const third=(await call('create',{})).body;assert.match(third.code,/^[A-F0-9]{8}$/);
     assert.equal((await call('state?code='+second.code,null,second.token)).status,404);
     for(const t of [first,third]){await call('settings',{code:t.code,mode:'hotseat'},t.token);await call('start',{code:t.code},t.token);}
-    const full=await call('create',{});assert.equal(full.status,503);assert.equal(full.body.error,'The server is full. Try again later.');
+    await pause(150);await full();
     for(const t of [first,third])await call('leave',{code:t.code},t.token);
-  }finally{config.maxTables=limit;await close();}
+  }finally{config.maxTables=limit;config.openTableMs=window;await close();}
 });
 test('Open tables list only lobbies whose host is still connected',async()=>{
   const {call,close}=await open(),window=config.openTableMs;config.openTableMs=150;

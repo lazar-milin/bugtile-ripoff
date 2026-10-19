@@ -60,6 +60,6 @@ Code follows Birdcard's GPL-3.0 licensing; see [LICENSE](LICENSE). Third-party a
 
 ## Prototype limits
 
-Tables are held in memory by a single server process and disappear on restart. A lobby closes after 10 minutes with nobody at it, and a game after 24 hours. The server holds up to 500 tables; when it is full, the least recently active lobby closes to make room, and Open tables shows a table only while its host is still there. The bot uses a lightweight heuristic. There are no accounts, persistent scores, spectators, or Discord integration.
+Tables are held in memory by a single server process and disappear on restart. A lobby closes after 10 minutes with nobody at it, and a game after 24 hours. The server holds up to 500 tables; when it is full, a lobby whose host has left closes to make room, and Open tables shows a table only while its host is still there. The bot uses a lightweight heuristic. There are no accounts, persistent scores, spectators, or Discord integration.
 
 Hive was created by John Yianni and published by Gen42. This is an unofficial fan-made prototype.
