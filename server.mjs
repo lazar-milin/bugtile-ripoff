@@ -19,6 +19,7 @@ function answer(w){
 }
 function wake(){for(const w of waiters){const r=rooms.get(w.code);if(r?.version!==w.since||!r.tokens.includes(w.token))answer(w);}}
 export const server=http.createServer(async(req,res)=>{try{
+  res.setHeader('x-content-type-options','nosniff');res.setHeader('referrer-policy','no-referrer');
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.startsWith('/api/')){
     if(req.method==='POST')res.once('finish',wake);

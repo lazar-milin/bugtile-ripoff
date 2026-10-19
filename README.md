@@ -54,7 +54,7 @@ Tests cover the base rules, all three expansions, table lifecycle, names, timers
 
 ## Artwork and sound
 
-Bug illustrations are supplied project artwork in `public/art/`. The VCR OSD Mono font, pixel interface icons, and sound cues follow [Birdcard Rip-off](https://github.com/lazar-milin/birdcard-ripoff). Sound cues come from Kenney's CC0 Interface Sounds; their license is retained in [public/audio/LICENSE.txt](public/audio/LICENSE.txt).
+Bug illustrations are supplied project artwork, stored as vector pixel-art SVGs in `public/art/`. The VCR OSD Mono font, pixel interface icons, and sound cues follow [Birdcard Rip-off](https://github.com/lazar-milin/birdcard-ripoff). VCR OSD Mono is by Riciery Leal (MrManet) and is listed as 100% Free on [DaFont](https://www.dafont.com/vcr-osd-mono.font); see [public/fonts/LICENSE.txt](public/fonts/LICENSE.txt). Sound cues come from Kenney's CC0 Interface Sounds; their license is retained in [public/audio/LICENSE.txt](public/audio/LICENSE.txt).
 
 Code follows Birdcard's GPL-3.0 licensing; see [LICENSE](LICENSE). Third-party assets retain their own terms.
 

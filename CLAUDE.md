@@ -39,7 +39,7 @@ Undo is host-configurable in the lobby, author-only, once for two seconds after 
 
 Preserve the established earth/pixel visual identity. Tile player colours are pale and dark green; the inner outline represents species. Keep reserve stacks countable, letters inside the intact tile border, legal destinations dashed, and special actions above the reserve. Use the existing icon system and bundled artwork; do not modify the separate Birdcard project.
 
-Bug artwork lives in public/art/, font in public/fonts/, and sound in public/audio/. Bug art is vector pixel art: one SVG per bug, one crispEdges path per colour on the art's own pixel grid. Keep images as SVG rather than adding raster files. Preserve the audio license. Do not commit local screenshots, credentials, .env files, dependencies, or temporary browser data.
+Bug artwork lives in public/art/, font in public/fonts/, and sound in public/audio/. Bug art is vector pixel art: one SVG per bug, one crispEdges path per colour on the art's own pixel grid. Keep images as SVG rather than adding raster files. Preserve the audio and font license notices. Do not commit local screenshots, credentials, .env files, dependencies, or temporary browser data.
 
 ## Validation
 

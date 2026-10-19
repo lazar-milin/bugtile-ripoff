@@ -77,3 +77,12 @@ test('Static files can be revalidated with an ETag instead of downloaded again',
     const stale=await fetch(base+'/art/Q.svg',{headers:{'If-None-Match':'"stale"'}});assert.equal(stale.status,200);await stale.text();
   }finally{await close();}
 });
+test('Every response forbids MIME sniffing and sends no referrer',async()=>{
+  const {base,close}=await open();
+  try{
+    for(const path of ['/','/art/Q.svg','/api/tables','/missing']){
+      const r=await fetch(base+path);await r.arrayBuffer();
+      assert.equal(r.headers.get('x-content-type-options'),'nosniff',path);assert.equal(r.headers.get('referrer-policy'),'no-referrer',path);
+    }
+  }finally{await close();}
+});
