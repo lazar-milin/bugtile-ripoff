@@ -1,5 +1,5 @@
 import http from 'node:http';
-import {readFile} from 'node:fs/promises';
+import {readFile,stat} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
@@ -72,8 +72,11 @@ export const server=http.createServer(async(req,res)=>{try{
   const requested=url.pathname==='/'?'index.html':decodeURIComponent(url.pathname.slice(1));
   const file=path.resolve(root,requested);
   if(!file.startsWith(root+path.sep))return send(res,403,{error:'Forbidden'});
+  // no-cache plus an ETag: browsers revalidate each load and get 304 when nothing changed.
+  const info=await stat(file),etag=`"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
+  if(req.headers['if-none-match']===etag){res.writeHead(304,{etag,'cache-control':'no-cache'});return res.end();}
   const bytes=await readFile(file),ext=path.extname(file);
-  res.writeHead(200,{'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
+  res.writeHead(200,{etag,'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
 }catch(e){
   // Errors thrown on purpose by the rules and table code are written for players; Node's own errors are not.
   if(e.code==='ENOENT'||e.code==='EISDIR')return send(res,404,{error:'Not found.'});

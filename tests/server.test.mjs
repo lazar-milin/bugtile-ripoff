@@ -67,3 +67,12 @@ test('Malformed requests get player-facing messages instead of raw Node errors',
     await call('leave',{code},host.token);
   }finally{await close();}
 });
+test('Static files can be revalidated with an ETag instead of downloaded again',async()=>{
+  const {base,close}=await open();
+  try{
+    const first=await fetch(base+'/art/Q.svg'),etag=first.headers.get('etag');await first.text();
+    assert.match(etag??'',/^"[^"]+"$/);assert.equal(first.headers.get('cache-control'),'no-cache');
+    const again=await fetch(base+'/art/Q.svg',{headers:{'If-None-Match':etag}});assert.equal(again.status,304);assert.equal(await again.text(),'');
+    const stale=await fetch(base+'/art/Q.svg',{headers:{'If-None-Match':'"stale"'}});assert.equal(stale.status,200);await stale.text();
+  }finally{await close();}
+});
