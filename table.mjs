@@ -6,8 +6,9 @@ export function createTable(code,token,name,now=Date.now()) {
   return {code,tokens:[token,null],host:0,mode:'online',phase:'lobby',state:initial([clean(name,randomName()),'Waiting for a player']),version:0,timer:0,undoEnabled:true,expansions:[],deadline:null,botAt:null,undo:null,wins:[0,0],draws:0,round:1,rematch:[],updated:now};
 }
 export function tableView(r,token,now=Date.now()) {
-  const you=r.tokens.indexOf(token);
-  return {code:r.code,version:r.version,state:r.state,you,host:r.host,mode:r.mode,phase:r.phase,seated:r.tokens.map(Boolean),ready:r.tokens.every(Boolean),timer:r.timer,undoEnabled:r.undoEnabled,expansions:r.expansions,deadline:r.deadline,wins:r.wins,draws:r.draws,round:r.round,rematch:r.rematch,serverNow:now,undoUntil:r.undoEnabled&&r.undo?.actor===you?r.undo.until:null};
+  // repetitions only serves the server's draw check and grows every turn, so clients never receive it.
+  const you=r.tokens.indexOf(token),{repetitions,...state}=r.state;
+  return {code:r.code,version:r.version,state,you,host:r.host,mode:r.mode,phase:r.phase,seated:r.tokens.map(Boolean),ready:r.tokens.every(Boolean),timer:r.timer,undoEnabled:r.undoEnabled,expansions:r.expansions,deadline:r.deadline,wins:r.wins,draws:r.draws,round:r.round,rematch:r.rematch,serverNow:now,undoUntil:r.undoEnabled&&r.undo?.actor===you?r.undo.until:null};
 }
 function hostOnly(r,you){if(you!==r.host)throw Error('Only the host can change this.');}
 function arm(r,now){

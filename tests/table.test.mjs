@@ -30,3 +30,4 @@ test('Unstarted lobbies close after ten idle minutes while games keep a day',()=
   const lobby=createTable('LOBBY','host','Fern',0),rooms=new Map([['LOBBY',lobby],['TEST',local()]]);
   tickTables(rooms,600000);assert(rooms.has('LOBBY'));tickTables(rooms,600001);assert(!rooms.has('LOBBY'));assert(rooms.has('TEST'));
 });
+test('Snapshots leave out the server-only repetition history',()=>{const r=local();moveTable(r,0,opening,r.version,100);assert(Object.keys(r.state.repetitions).length);assert(!('repetitions' in tableView(r,'host').state));});

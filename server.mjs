@@ -8,11 +8,20 @@ import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable
 const root=path.resolve(fileURLToPath(new URL('./public/',import.meta.url)));
 const rooms=new Map(),token=()=>randomBytes(18).toString('hex');
 // Limits for a public host. Tests shorten them.
-export const config={maxTables:500,openTableMs:60000,idleLobbyMs:600000};
-const send=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
+export const config={maxTables:500,openTableMs:60000,idleLobbyMs:600000,longPollMs:25000};
+const missing='Table not found. It may have closed. Create a table or choose an open one.',unseated='Your seat is no longer at this table. Join again from the entrance.';
+const send=(res,status,data)=>{if(res.writableEnded||res.destroyed)return;res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
+// State requests held open until their table changes, closes, or drops their seat.
+const waiters=new Set();
+function answer(w){
+  waiters.delete(w);clearTimeout(w.timer);const r=rooms.get(w.code);
+  if(!r)return send(w.res,404,{error:missing});if(!r.tokens.includes(w.token))return send(w.res,403,{error:unseated});send(w.res,200,tableView(r,w.token));
+}
+function wake(){for(const w of waiters){const r=rooms.get(w.code);if(r?.version!==w.since||!r.tokens.includes(w.token))answer(w);}}
 export const server=http.createServer(async(req,res)=>{try{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.startsWith('/api/')){
+    if(req.method==='POST')res.once('finish',wake);
     let data={};
     if(req.method==='POST'){let body='';for await(const c of req){body+=c;if(body.length>10000)throw Error('Request too large.');}data=JSON.parse(body||'{}');}
     else if(req.method!=='GET')return send(res,405,{error:'Method not allowed.'});
@@ -25,15 +34,20 @@ export const server=http.createServer(async(req,res)=>{try{
       const t=token(),r=createTable(code,t,data.name);rooms.set(code,r);return send(res,200,{...tableView(r,t),token:t});
     }
     const code=String(data.code||url.searchParams.get('code')||'').toUpperCase(),r=rooms.get(code);
-    if(!r)return send(res,404,{error:'Table not found. It may have closed. Create a table or choose an open one.'});
+    if(!r)return send(res,404,{error:missing});
     const t=req.headers.authorization?.replace('Bearer ',''),you=r.tokens.indexOf(t);
     if(req.method==='POST'&&endpoint==='join'){
       if(you>=0)return send(res,200,tableView(r,t));
       const next=token();joinTable(r,next,data.name);return send(res,200,{...tableView(r,next),token:next});
     }
-    if(you<0)return send(res,403,{error:'Your seat is no longer at this table. Join again from the entrance.'});
+    if(you<0)return send(res,403,{error:unseated});
     r.updated=Date.now();tickTable(r);
-    if(req.method==='GET'&&endpoint==='state')return send(res,200,tableView(r,t));
+    if(req.method==='GET'&&endpoint==='state'){
+      // ?since=<version> waits until the table is newer than the client's copy, or until config.longPollMs passes.
+      if(url.searchParams.get('since')!==String(r.version))return send(res,200,tableView(r,t));
+      const w={res,code,token:t,since:r.version};w.timer=setTimeout(()=>answer(w),config.longPollMs);
+      waiters.add(w);res.on('close',()=>{clearTimeout(w.timer);waiters.delete(w);});return;
+    }
     if(req.method!=='POST')return send(res,404,{error:'Unknown action.'});
     if(endpoint==='settings')configure(r,you,data);
     else if(endpoint==='start')startTable(r,you,data);
@@ -55,7 +69,7 @@ export const server=http.createServer(async(req,res)=>{try{
   const bytes=await readFile(file),ext=path.extname(file);
   res.writeHead(200,{'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
 }catch(e){send(res,e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'File not found':e.message});}});
-const ticker=setInterval(()=>tickTables(rooms,Date.now(),config),200);ticker.unref();
+const ticker=setInterval(()=>{tickTables(rooms,Date.now(),config);wake();},200);ticker.unref();
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   const port=Number(process.env.PORT||3007);
   server.listen(port,'0.0.0.0',()=>{console.log(`BugTile Rip-off ready: http://127.0.0.1:${port}`);for(const list of Object.values(networkInterfaces()))for(const n of list||[])if(n.family==='IPv4'&&!n.internal)console.log(`Same-network play: http://${n.address}:${port}`);});

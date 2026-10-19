@@ -24,3 +24,29 @@ test('Open tables list only lobbies whose host is still connected',async()=>{
     await call('state?code='+host.code,null,host.token);assert(await listed());
   }finally{config.openTableMs=window;await close();}
 });
+test('State requests wait for the next change, and closing the table answers waiters',async()=>{
+  const {call,close}=await open(),wait=config.longPollMs;config.longPollMs=3000;
+  try{
+    const host=(await call('create',{name:'Fern'})).body,code=host.code,guest=(await call('join',{code,name:'Moss'})).body;
+    const started=(await call('start',{code},host.token)).body,since=v=>`state?code=${code}&since=${v}`;
+    const waiting=call(since(started.version),null,guest.token);await pause(100);
+    await call('move',{code,version:started.version,action:{type:'place',bug:'Q',to:'0,0'}},host.token);
+    const next=(await waiting).body;assert.equal(next.state.ply,1);assert(!('repetitions' in next.state));
+    const t=Date.now();assert.equal((await call(since(started.version),null,guest.token)).body.version,next.version);assert(Date.now()-t<500);
+    config.longPollMs=100;assert.equal((await call(since(next.version),null,guest.token)).body.version,next.version);config.longPollMs=3000;
+    const lobbyWait=call(since(next.version),null,guest.token);await pause(100);await call('leave',{code},host.token);
+    const lobby=(await lobbyWait).body;assert.equal(lobby.phase,'lobby');
+    const closedWait=call(since(lobby.version),null,guest.token);await pause(100);await call('leave',{code},guest.token);
+    assert.equal((await closedWait).status,404);
+  }finally{config.longPollMs=wait;await close();}
+});
+test('A bot reply wakes a waiting state request',async()=>{
+  const {call,close}=await open(),wait=config.longPollMs;config.longPollMs=5000;
+  try{
+    const host=(await call('create',{})).body,code=host.code;await call('settings',{code,mode:'bot',undoEnabled:false},host.token);
+    const started=(await call('start',{code},host.token)).body;
+    const moved=(await call('move',{code,version:started.version,action:{type:'place',bug:'Q',to:'0,0'}},host.token)).body;
+    const t=Date.now(),next=(await call(`state?code=${code}&since=${moved.version}`,null,host.token)).body;
+    assert.equal(next.state.ply,2);assert(Date.now()-t<2000);
+  }finally{config.longPollMs=wait;await close();}
+});

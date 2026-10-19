@@ -278,11 +278,14 @@ const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitF
 for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading .actions')])layoutObserver.observe(element);
 document.fonts.ready.then(fit);
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){selection=null;closePanels();if(room)render();}});
-let polling=false;
+// Long poll: one request at a time, answered when the table changes or after about 25 seconds.
+// A request still held for a table you left does not block polling the new one.
+let poll=null;
 setInterval(async()=>{
-  if(!room||busy||polling)return;polling=true;const code=room.code,run=epoch;
-  try{const next=await api('state?code='+code);if(run===epoch&&room?.code===code&&!busy)accept(next);}
-  catch(e){if(run===epoch)notice('Connection lost. Retrying… '+e.message);}finally{polling=false;}
+  if(!room||busy||poll?.code===room.code)return;const current=poll={code:room.code},run=epoch;
+  try{const next=await api(`state?code=${current.code}&since=${room.version}`);if(run===epoch&&room?.code===current.code&&!busy)accept(next);}
+  catch(e){if(run===epoch)notice('Connection lost. Retrying… '+e.message);await new Promise(r=>setTimeout(r,2000));}
+  finally{if(poll===current)poll=null;}
 },350);
 setInterval(updateClocks,50);setInterval(refreshTables,5000);
 $('name').value=storage.get('name')||'';renderName();$('resume').hidden=!storage.get('room');render();refreshTables();
