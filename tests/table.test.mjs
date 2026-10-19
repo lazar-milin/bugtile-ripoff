@@ -9,6 +9,23 @@ test('Online undo belongs to its author and disappears after an opposing move',(
 test('Bot waits out undo, then makes one legal move',()=>{const r=local('bot');moveTable(r,0,opening,r.version,100);tickTable(r,2100);assert.equal(r.state.ply,1);tickTable(r,2300);assert.equal(r.state.ply,2);assert.equal(r.state.turn,0);assert.equal(r.undo,null);});
 test('Undo cancels a scheduled bot reply',()=>{const r=local('bot');moveTable(r,0,opening,r.version,100);undoTable(r,0,500);tickTable(r,5000);assert.equal(r.state.ply,0);assert.equal(r.botAt,null);});
 test('Timer executes a legal move and resets the deadline',()=>{const r=createTable('TEST','host','Fern',0);configure(r,0,{timer:30},0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);tickTable(r,29999);assert.equal(r.state.ply,0);tickTable(r,30000);assert.equal(r.state.ply,1);assert.equal(r.deadline,60000);assert.equal(r.undo,null);});
+
+test('Repeated move and undo cannot extend an online turn deadline',()=>{
+  const r=createTable('TEST','host','Fern',0);configure(r,0,{timer:30},0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);
+  for(const time of [27000,29000]){
+    moveTable(r,0,opening,r.version,time);assert.equal(r.deadline,time+30000);
+    undoTable(r,0,time+500);assert.equal(r.deadline,30000);assert.equal(r.state.ply,0);
+  }
+  tickTable(r,29999);assert.equal(r.state.ply,0);
+  tickTable(r,30000);assert.equal(r.state.ply,1);assert.equal(r.undo,null);
+});
+
+test('Undo preserves an already expired deadline for the next automatic move',()=>{
+  const r=createTable('TEST','host','Fern',0);configure(r,0,{timer:30},0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);
+  moveTable(r,0,opening,r.version,29950);undoTable(r,0,30050);
+  assert.equal(r.deadline,30000);assert.equal(r.state.ply,0);
+  tickTable(r,30050);assert.equal(r.state.ply,1);assert.equal(r.deadline,60050);assert.equal(r.undo,null);
+});
 test('Leaving transfers host, ends unfinished games, and closes empty tables',()=>{const r=createTable('TEST','host','Fern',0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);moveTable(r,0,opening,r.version,10);assert.equal(leaveTable(r,0,20),true);assert.equal(r.host,1);assert.equal(r.phase,'lobby');assert.equal(r.state.ply,0);assert.equal(r.undo,null);assert.equal(leaveTable(r,1,30),false);});
 test('Rematch keeps wins, resets the board, and requires both online players',()=>{const r=createTable('TEST','host','Fern',0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);r.state.result=0;r.wins=[1,0];rematchTable(r,0,10);assert.equal(r.state.result,0);rematchTable(r,0,11);assert.equal(r.round,1);rematchTable(r,1,20);assert.equal(r.state.result,null);assert.equal(r.round,2);assert.deepEqual(r.wins,[1,0]);});
 test('A completed game records one win; undo reverses that result',()=>{

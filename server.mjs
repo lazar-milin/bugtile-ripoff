@@ -19,6 +19,8 @@ function answer(w){
 }
 function wake(){for(const w of waiters){const r=rooms.get(w.code);if(r?.version!==w.since||!r.tokens.includes(w.token))answer(w);}}
 export const server=http.createServer(async(req,res)=>{try{
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.setHeader('Referrer-Policy','no-referrer');
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.startsWith('/api/')){
     if(req.method==='POST')res.once('finish',wake);
@@ -76,7 +78,7 @@ export const server=http.createServer(async(req,res)=>{try{
   const info=await stat(file),etag=`"${info.size.toString(36)}-${Math.floor(info.mtimeMs).toString(36)}"`;
   if(req.headers['if-none-match']===etag){res.writeHead(304,{etag,'cache-control':'no-cache'});return res.end();}
   const bytes=await readFile(file),ext=path.extname(file);
-  res.writeHead(200,{etag,'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
+  res.writeHead(200,{etag,'content-type':({'.html':'text/html; charset=utf-8','.txt':'text/plain; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
 }catch(e){
   // Errors thrown on purpose by the rules and table code are written for players; Node's own errors are not.
   if(e.code==='ENOENT'||e.code==='EISDIR')return send(res,404,{error:'Not found.'});

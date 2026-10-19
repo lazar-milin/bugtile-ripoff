@@ -1,0 +1,24 @@
+VCR OSD Mono — attribution and published terms
+
+Font: VCR OSD Mono, version 1.001 (March 31, 2015)
+Author: Riciery Leal, also known as MrManet / mrmanet
+Original filename: VCR_OSD_MONO_1.001.ttf
+Bundled filename: vcr-osd-mono.ttf
+
+Author's distribution page:
+https://www.dafont.com/vcr-osd-mono.font
+
+The distribution page labels this font "100% Free".
+On February 24, 2017, mrmanet, identified there as the font's author,
+confirmed its use terms:
+
+"Yes, the font is free even for commercial purposes."
+
+Source of the author's statement:
+https://www.dafont.com/font-comment.php?file=vcr_osd_mono
+
+The original archive supplied by that distribution page contains the TTF
+only, with no separate license document. This notice records the author's
+published terms and attribution, checked October 19, 2026. The bundled
+font is unmodified and remains under those terms, separately from the
+game code's GPL-3.0 license.

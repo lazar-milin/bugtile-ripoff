@@ -47,7 +47,7 @@ export function moveTable(r,you,action,version,now=Date.now(),automatic=false) {
   if(r.phase!=='game')throw Error('The host needs to start the game first.');
   if(version!==r.version)throw Error('The board changed. Try again.');
   if(!automatic&&(r.mode==='online'?r.state.turn!==you:you!==r.host||r.mode==='bot'&&r.state.turn!==r.host))throw Error('It is your opponent’s turn.');
-  const before={state:r.state,wins:[...r.wins],draws:r.draws};
+  const before={state:r.state,wins:[...r.wins],draws:r.draws,deadline:r.deadline};
   r.state=apply(r.state,action);
   if(r.state.result==='draw')r.draws++;else if(r.state.result!==null)r.wins[r.state.result]++;
   r.undo=automatic||!r.undoEnabled?null:{...before,actor:you,until:now+2000};
@@ -56,7 +56,8 @@ export function moveTable(r,you,action,version,now=Date.now(),automatic=false) {
 }
 export function undoTable(r,you,now=Date.now()) {
   if(!r.undoEnabled||!r.undo||r.undo.actor!==you||now>=r.undo.until)throw Error('Undo is available only for two seconds after your own latest move when enabled.');
-  r.state=r.undo.state;r.wins=r.undo.wins;r.draws=r.undo.draws;r.undo=null;r.version++;r.updated=now;arm(r,now);
+  const deadline=r.undo.deadline;
+  r.state=r.undo.state;r.wins=r.undo.wins;r.draws=r.undo.draws;r.undo=null;r.version++;r.updated=now;arm(r,now);r.deadline=deadline;
 }
 export function rematchTable(r,you,now=Date.now()) {
   if(r.state.result===null)throw Error('Finish this game first.');
