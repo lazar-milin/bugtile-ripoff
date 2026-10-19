@@ -115,7 +115,7 @@ function transition(s,a){
 }
 export function apply(s,action){
  if(s.result!==null)throw Error('This game has ended. Start a new game.');
- const legal=actions(s).find(a=>a.type===action.type&&a.bug===action.bug&&a.from===action.from&&a.to===action.to&&a.via===action.via);
+ const legal=action&&typeof action==='object'&&actions(s).find(a=>a.type===action.type&&a.bug===action.bug&&a.from===action.from&&a.to===action.to&&a.via===action.via);
  if(!legal)throw Error('That move is not legal. Choose a highlighted hex.');return transition(s,legal);
 }
 export function bot(s){

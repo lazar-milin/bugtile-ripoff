@@ -6,8 +6,9 @@ export function createTable(code,token,name,now=Date.now()) {
   return {code,tokens:[token,null],host:0,mode:'online',phase:'lobby',state:initial([clean(name,randomName()),'Waiting for a player']),version:0,timer:0,undoEnabled:true,expansions:[],deadline:null,botAt:null,undo:null,wins:[0,0],draws:0,round:1,rematch:[],updated:now};
 }
 export function tableView(r,token,now=Date.now()) {
-  const you=r.tokens.indexOf(token);
-  return {code:r.code,version:r.version,state:r.state,you,host:r.host,mode:r.mode,phase:r.phase,seated:r.tokens.map(Boolean),ready:r.tokens.every(Boolean),timer:r.timer,undoEnabled:r.undoEnabled,expansions:r.expansions,deadline:r.deadline,wins:r.wins,draws:r.draws,round:r.round,rematch:r.rematch,serverNow:now,undoUntil:r.undoEnabled&&r.undo?.actor===you?r.undo.until:null};
+  // repetitions only serves the server's draw check and grows every turn, so clients never receive it.
+  const you=r.tokens.indexOf(token),{repetitions,...state}=r.state;
+  return {code:r.code,version:r.version,state,you,host:r.host,mode:r.mode,phase:r.phase,seated:r.tokens.map(Boolean),ready:r.tokens.every(Boolean),timer:r.timer,undoEnabled:r.undoEnabled,expansions:r.expansions,deadline:r.deadline,wins:r.wins,draws:r.draws,round:r.round,rematch:r.rematch,serverNow:now,undoUntil:r.undoEnabled&&r.undo?.actor===you?r.undo.until:null};
 }
 function hostOnly(r,you){if(you!==r.host)throw Error('Only the host can change this.');}
 function arm(r,now){
@@ -73,4 +74,12 @@ export function tickTable(r,now=Date.now()) {
   if(r.phase!=='game'||r.state.result!==null)return;
   if(r.botAt&&now>=r.botAt){const a=bot(r.state);moveTable(r,1-r.host,a,r.version,now,true);}
   else if(r.deadline&&now>=r.deadline){const legal=actions(r.state);moveTable(r,r.state.turn,legal[Math.floor(Math.random()*legal.length)],r.version,now,true);}
+}
+// Advances every table and expires idle ones: unstarted lobbies after ten minutes, games after a day.
+// A table whose automatic move fails is logged and disarmed so one bad table cannot stop the others.
+export function tickTables(rooms,now=Date.now(),{expireMs=86400000,idleLobbyMs=600000,log=console.error}={}) {
+  for(const[code,r]of rooms){
+    if(now-r.updated>(r.phase==='lobby'?idleLobbyMs:expireMs)){rooms.delete(code);continue;}
+    try{tickTable(r,now);}catch(e){log(`Table ${code} stopped its automatic move:`,e);r.botAt=null;r.deadline=null;}
+  }
 }

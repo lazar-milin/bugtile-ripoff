@@ -16,8 +16,8 @@ const fireflies=createFireflyLights({onChange:(id,src)=>{
     if(node.tagName==='IMG')node.src=src;else node.style.backgroundImage=`url('${src}')`;
   }
 }});
-for(const src of ['/art/F.png','/art/F-lit.png']){const preload=new Image();preload.src=src;}
-const artSource=(type,id)=>type==='F'?fireflies.src(id):`/art/${type}.png`;
+for(const src of ['/art/F.svg','/art/F-lit.svg']){const preload=new Image();preload.src=src;}
+const artSource=(type,id)=>type==='F'?fireflies.src(id):`/art/${type}.svg`;
 const lightAttribute=(type,id)=>type==='F'?`data-firefly="${esc(id)}"`:'';
 function sound(kind='select_001'){if(!muted)new Audio(`/audio/${kind}.ogg`).play().catch(()=>{});}
 function notice(message){$('notice').textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',5000);}
@@ -267,7 +267,7 @@ $('undo-toggle').innerHTML=UndoIcon+'<span class="control-label">Enable or disab
 $('timer-status').innerHTML=ClockIcon+'<small id="timer-status-label"></small>';
 $('undo-status').innerHTML=UndoIcon+'<svg class="cross-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18" stroke="#ba4949" stroke-width="3"/></svg>';
 for(const[mode,icon]of [['online',InternetIcon],['hotseat',HotseatIcon],['bot',BotIcon]])document.querySelector(`[data-mode="${mode}"] .mode-icon`).innerHTML=icon;
-$('rules-picker').innerHTML='<button id="classic-rules"><strong>Classic</strong><small>The original five bug types</small></button>'+EXPANSIONS.map(k=>`<button data-expansion="${k}"><strong>${TYPES[k].name}</strong><small><span>Adds the ${TYPES[k].name}</span><span class="expansion-tile" aria-hidden="true"><span class="hex neutral" style="--bug:${TYPES[k].color}">${speciesSVG}<img src="/art/${k}.png" alt=""></span></span></small></button>`).join('');
+$('rules-picker').innerHTML='<button id="classic-rules"><strong>Classic</strong><small>The original five bug types</small></button>'+EXPANSIONS.map(k=>`<button data-expansion="${k}"><strong>${TYPES[k].name}</strong><small><span>Adds the ${TYPES[k].name}</span><span class="expansion-tile" aria-hidden="true"><span class="hex neutral" style="--bug:${TYPES[k].color}">${speciesSVG}<img src="/art/${k}.svg" alt=""></span></span></small></button>`).join('');
 $('classic-rules').onclick=()=>request('settings',{expansions:[]});
 for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{const key=b.dataset.expansion,next=room.expansions.includes(key)?room.expansions.filter(k=>k!==key):[...room.expansions,key];request('settings',{expansions:next});};
 $('bug-guide').innerHTML=Object.keys(TYPES).map(k=>guideEntry(k)).join('');
@@ -278,11 +278,14 @@ const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitF
 for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading .actions')])layoutObserver.observe(element);
 document.fonts.ready.then(fit);
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){selection=null;closePanels();if(room)render();}});
-let polling=false;
+// Long poll: one request at a time, answered when the table changes or after about 25 seconds.
+// A request still held for a table you left does not block polling the new one.
+let poll=null;
 setInterval(async()=>{
-  if(!room||busy||polling)return;polling=true;const code=room.code,run=epoch;
-  try{const next=await api('state?code='+code);if(run===epoch&&room?.code===code&&!busy)accept(next);}
-  catch(e){if(run===epoch)notice('Connection lost. Retrying… '+e.message);}finally{polling=false;}
+  if(!room||busy||poll?.code===room.code)return;const current=poll={code:room.code},run=epoch;
+  try{const next=await api(`state?code=${current.code}&since=${room.version}`);if(run===epoch&&room?.code===current.code&&!busy)accept(next);}
+  catch(e){if(run===epoch)notice('Connection lost. Retrying… '+e.message);await new Promise(r=>setTimeout(r,2000));}
+  finally{if(poll===current)poll=null;}
 },350);
 setInterval(updateClocks,50);setInterval(refreshTables,5000);
 $('name').value=storage.get('name')||'';renderName();$('resume').hidden=!storage.get('room');render();refreshTables();

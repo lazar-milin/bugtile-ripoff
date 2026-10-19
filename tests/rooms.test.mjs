@@ -33,6 +33,6 @@ test('Lobby creation, discovery, two-player start, moves, reconnect and leave',a
     assert.equal(remaining.host,1);assert.equal(remaining.phase,'lobby');assert.equal(remaining.state.ply,0);
     assert.equal((await call('leave',{code:host.code},guest.token)).status,200);
     assert.equal((await call('state?code='+host.code,null,guest.token)).status,404);
-    const html=await fetch(base);assert.equal(html.status,200);assert((await html.text()).includes('BugTile Rip-off'));assert.equal((await fetch(base+'/art/Q.png')).status,200);
+    const html=await fetch(base);assert.equal(html.status,200);assert((await html.text()).includes('BugTile Rip-off'));assert.equal((await fetch(base+'/art/Q.svg')).headers.get('content-type'),'image/svg+xml');
   }finally{await new Promise(r=>server.close(r));}
 });
