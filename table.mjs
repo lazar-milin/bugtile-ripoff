@@ -74,11 +74,11 @@ export function tickTable(r,now=Date.now()) {
   if(r.botAt&&now>=r.botAt){const a=bot(r.state);moveTable(r,1-r.host,a,r.version,now,true);}
   else if(r.deadline&&now>=r.deadline){const legal=actions(r.state);moveTable(r,r.state.turn,legal[Math.floor(Math.random()*legal.length)],r.version,now,true);}
 }
-// Advances every table and expires idle ones. A table whose automatic move fails is logged and
-// disarmed so one bad table cannot stop the ticker for everyone else.
-export function tickTables(rooms,now=Date.now(),{expireMs=86400000,log=console.error}={}) {
+// Advances every table and expires idle ones: unstarted lobbies after ten minutes, games after a day.
+// A table whose automatic move fails is logged and disarmed so one bad table cannot stop the others.
+export function tickTables(rooms,now=Date.now(),{expireMs=86400000,idleLobbyMs=600000,log=console.error}={}) {
   for(const[code,r]of rooms){
-    if(now-r.updated>expireMs){rooms.delete(code);continue;}
+    if(now-r.updated>(r.phase==='lobby'?idleLobbyMs:expireMs)){rooms.delete(code);continue;}
     try{tickTable(r,now);}catch(e){log(`Table ${code} stopped its automatic move:`,e);r.botAt=null;r.deadline=null;}
   }
 }

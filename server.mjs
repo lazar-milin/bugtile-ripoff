@@ -7,6 +7,8 @@ import {networkInterfaces} from 'node:os';
 import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable,rematchTable,leaveTable,tickTable,tickTables} from './table.mjs';
 const root=path.resolve(fileURLToPath(new URL('./public/',import.meta.url)));
 const rooms=new Map(),token=()=>randomBytes(18).toString('hex');
+// Limits for a public host. Tests shorten them.
+export const config={maxTables:500,openTableMs:60000,idleLobbyMs:600000};
 const send=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
 export const server=http.createServer(async(req,res)=>{try{
   const url=new URL(req.url,'http://localhost');
@@ -15,8 +17,10 @@ export const server=http.createServer(async(req,res)=>{try{
     if(req.method==='POST'){let body='';for await(const c of req){body+=c;if(body.length>10000)throw Error('Request too large.');}data=JSON.parse(body||'{}');}
     else if(req.method!=='GET')return send(res,405,{error:'Method not allowed.'});
     const endpoint=url.pathname.slice(5);
-    if(req.method==='GET'&&endpoint==='tables')return send(res,200,{tables:[...rooms.values()].filter(r=>r.phase==='lobby'&&r.mode==='online'&&r.tokens.filter(Boolean).length===1).map(r=>({code:r.code,name:r.state.names[r.host],players:1}))});
+    // Only lobbies whose host is still connected; an abandoned lobby drops off within a minute.
+    if(req.method==='GET'&&endpoint==='tables')return send(res,200,{tables:[...rooms.values()].filter(r=>r.phase==='lobby'&&r.mode==='online'&&r.tokens.filter(Boolean).length===1&&Date.now()-r.updated<config.openTableMs).map(r=>({code:r.code,name:r.state.names[r.host],players:1}))});
     if(req.method==='POST'&&endpoint==='create'){
+      if(rooms.size>=config.maxTables)return send(res,503,{error:'The server is full. Try again later.'});
       let code;do{code=randomBytes(4).toString('hex').toUpperCase();}while(rooms.has(code));
       const t=token(),r=createTable(code,t,data.name);rooms.set(code,r);return send(res,200,{...tableView(r,t),token:t});
     }
@@ -51,7 +55,7 @@ export const server=http.createServer(async(req,res)=>{try{
   const bytes=await readFile(file),ext=path.extname(file);
   res.writeHead(200,{'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
 }catch(e){send(res,e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'File not found':e.message});}});
-const ticker=setInterval(()=>tickTables(rooms),200);ticker.unref();
+const ticker=setInterval(()=>tickTables(rooms,Date.now(),config),200);ticker.unref();
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   const port=Number(process.env.PORT||3007);
   server.listen(port,'0.0.0.0',()=>{console.log(`BugTile Rip-off ready: http://127.0.0.1:${port}`);for(const list of Object.values(networkInterfaces()))for(const n of list||[])if(n.family==='IPv4'&&!n.internal)console.log(`Same-network play: http://${n.address}:${port}`);});

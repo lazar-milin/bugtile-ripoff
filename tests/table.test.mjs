@@ -26,3 +26,7 @@ test('A failing table is logged and disarmed while other tables keep running',()
   tickTables(rooms,30000,{log});assert.equal(healthy.state.ply,1);assert.equal(broken.botAt,null);assert.equal(errors.length,1);assert.match(errors[0],/TEST/);
   tickTables(rooms,30200,{log});assert.equal(errors.length,1);
 });
+test('Unstarted lobbies close after ten idle minutes while games keep a day',()=>{
+  const lobby=createTable('LOBBY','host','Fern',0),rooms=new Map([['LOBBY',lobby],['TEST',local()]]);
+  tickTables(rooms,600000);assert(rooms.has('LOBBY'));tickTables(rooms,600001);assert(!rooms.has('LOBBY'));assert(rooms.has('TEST'));
+});
