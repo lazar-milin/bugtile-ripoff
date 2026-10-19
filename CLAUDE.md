@@ -22,7 +22,7 @@ Test online play in two tabs: each holds its own seat in sessionStorage. All mod
 - table.mjs: authoritative table lifecycle and mutable room transitions. Owns seats, host, game mode, expansion settings, timer, undo window, bot scheduling, rematches, and scores. tableView() returns the client snapshot. Keep authorization and setting validation here rather than trusting the browser.
 - server.mjs: Node HTTP adapter, static assets, table codes, bearer seat tokens, and in-memory room storage. The 200ms ticker advances bots and expired timers. /api/move checks the room version to reject stale actions. Exported server can listen on an ephemeral port in tests; importing it must not start a listener.
 - public/app.js: DOM rendering, polling, session state, selection, board fitting, controls, and sound. public/index.html and public/style.css define the interface. public/icons.js contains the pixel SVG icon system; public/names.js generates colour + bug names.
-- public/fireflies.js: cosmetic per-piece timers for Firefly artwork. Each light switches after a fresh random 2–20 second delay, independent of turns and DOM redraws. public/art/F.png is unlit; F-lit.png is lit. Firefly uses type F, has two tiles per player, and slides exactly three steps without retracing.
+- public/fireflies.js: cosmetic per-piece timers for Firefly artwork. Each light switches after a fresh random 2–20 second delay, independent of turns and DOM redraws. public/art/F.svg is unlit; F-lit.svg is lit. Firefly uses type F, has two tiles per player, and slides exactly three steps without retracing.
 - tests/: base rules, expansion edge cases, table transitions, and two-client HTTP integration tests using Node's built-in runner.
 
 Rooms expire after 24 hours without client activity and disappear on restart. Run one server process. No database, account system, external service, or Discord SDK is involved.
@@ -39,7 +39,7 @@ Undo is host-configurable in the lobby, author-only, once for two seconds after 
 
 Preserve the established earth/pixel visual identity. Tile player colours are pale and dark green; the inner outline represents species. Keep reserve stacks countable, letters inside the intact tile border, legal destinations dashed, and special actions above the reserve. Use the existing icon system and bundled artwork; do not modify the separate Birdcard project.
 
-Bug artwork lives in public/art/, font in public/fonts/, and sound in public/audio/. Preserve the audio license. Do not commit local screenshots, credentials, .env files, dependencies, or temporary browser data.
+Bug artwork lives in public/art/, font in public/fonts/, and sound in public/audio/. Bug art is vector pixel art: one SVG per bug, one crispEdges path per colour on the art's own pixel grid. Keep images as SVG rather than adding raster files. Preserve the audio license. Do not commit local screenshots, credentials, .env files, dependencies, or temporary browser data.
 
 ## Validation
 
