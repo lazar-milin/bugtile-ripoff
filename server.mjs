@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {randomBytes} from 'node:crypto';
 import {networkInterfaces} from 'node:os';
-import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable,rematchTable,leaveTable,tickTable} from './table.mjs';
+import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable,rematchTable,leaveTable,tickTable,tickTables} from './table.mjs';
 const root=path.resolve(fileURLToPath(new URL('./public/',import.meta.url)));
 const rooms=new Map(),token=()=>randomBytes(18).toString('hex');
 const send=(res,status,data)=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify(data));};
@@ -51,7 +51,7 @@ export const server=http.createServer(async(req,res)=>{try{
   const bytes=await readFile(file),ext=path.extname(file);
   res.writeHead(200,{'content-type':({'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.png':'image/png','.webp':'image/webp','.svg':'image/svg+xml','.ttf':'font/ttf','.ogg':'audio/ogg'})[ext]||'application/octet-stream','cache-control':'no-cache'});res.end(bytes);
 }catch(e){send(res,e.code==='ENOENT'?404:400,{error:e.code==='ENOENT'?'File not found':e.message});}});
-const ticker=setInterval(()=>{for(const [code,r]of rooms){if(Date.now()-r.updated>86400000)rooms.delete(code);else tickTable(r);}},200);ticker.unref();
+const ticker=setInterval(()=>tickTables(rooms),200);ticker.unref();
 if(process.argv[1]===fileURLToPath(import.meta.url)){
   const port=Number(process.env.PORT||3007);
   server.listen(port,'0.0.0.0',()=>{console.log(`BugTile Rip-off ready: http://127.0.0.1:${port}`);for(const list of Object.values(networkInterfaces()))for(const n of list||[])if(n.family==='IPv4'&&!n.internal)console.log(`Same-network play: http://${n.address}:${port}`);});

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable,rematchTable,leaveTable,tickTable} from '../table.mjs';
+import {createTable,tableView,joinTable,configure,startTable,moveTable,undoTable,rematchTable,leaveTable,tickTable,tickTables} from '../table.mjs';
 const opening={type:'place',bug:'Q',to:'0,0'};
 function local(mode='hotseat'){const r=createTable('TEST','host','Fern',0);configure(r,0,{mode},0);startTable(r,0,{},0);return r;}
 test('Only the host chooses mode, timer, and starts',()=>{const r=createTable('TEST','host','Fern',0);assert.throws(()=>configure(r,1,{timer:30}));configure(r,0,{timer:60});assert.equal(r.timer,60);assert.throws(()=>startTable(r,0));joinTable(r,'guest','Moss');assert.throws(()=>configure(r,0,{mode:'bot'}));startTable(r,0,{},100);assert.equal(r.deadline,60100);assert.throws(()=>configure(r,0,{timer:30}));});
@@ -17,3 +17,12 @@ test('A completed game records one win; undo reverses that result',()=>{
   moveTable(r,0,{type:'move',from:'0,3',to:'0,1'},r.version,100);assert.equal(r.state.result,0);assert.deepEqual(r.wins,[1,0]);tickTable(r,500);assert.deepEqual(r.wins,[1,0]);undoTable(r,0,1000);assert.equal(r.state.result,null);assert.deepEqual(r.wins,[0,0]);
 });
 test('Re-selecting Online play preserves the seated guest name',()=>{const r=createTable('TEST','host','Fern',0);joinTable(r,'guest','Moss',0);configure(r,0,{mode:'online'},0);assert.equal(r.state.names[1],'Moss');});
+test('Tables expire after a day without client activity',()=>{const rooms=new Map([['TEST',local()]]);tickTables(rooms,86400000);assert(rooms.has('TEST'));tickTables(rooms,86400001);assert(!rooms.has('TEST'));});
+test('A failing table is logged and disarmed while other tables keep running',()=>{
+  const broken=local('bot'),healthy=createTable('GOOD','host','Fern',0),errors=[],log=(...parts)=>errors.push(parts.join(' '));
+  configure(healthy,0,{timer:30},0);joinTable(healthy,'guest','Moss',0);startTable(healthy,0,{},0);
+  moveTable(broken,0,opening,broken.version,100);broken.state.reserves=null;
+  const rooms=new Map([['TEST',broken],['GOOD',healthy]]);
+  tickTables(rooms,30000,{log});assert.equal(healthy.state.ply,1);assert.equal(broken.botAt,null);assert.equal(errors.length,1);assert.match(errors[0],/TEST/);
+  tickTables(rooms,30200,{log});assert.equal(errors.length,1);
+});
