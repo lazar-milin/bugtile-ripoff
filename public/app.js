@@ -5,6 +5,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const storage={get(k){try{return JSON.parse((k==='room'?sessionStorage:localStorage).getItem('hive-garden:'+k));}catch{return null;}},set(k,v){try{(k==='room'?sessionStorage:localStorage).setItem('hive-garden:'+k,JSON.stringify(v));}catch{}}};
 let room=null,state=null,busy=false,selection=null,pan={x:0,y:0},zoom=1,offset=0,epoch=0,noticeTimer=null,muted=storage.get('muted')??true;
+let hoverInstructions=storage.get('hoverInstructions')??false,hoveredRule=null,hoveredStack=null,previewSignature='';
 const hostGem='<svg class="host-gem" viewBox="0 0 16 18" role="img" aria-label="Host"><path d="M4 1h8v2h3v8l-2 2-5 4-5-4-2-2V3h3z" fill="currentColor"/><path d="M5 4h6v6l-3 3-3-3z" fill="#fff4bc"/><path d="M5 4h3v9l-3-3z" fill="#d9b34b"/></svg>';
 const legalSVG='<svg class="legal-outline" viewBox="0 0 102 116" aria-hidden="true"><polygon points="51,3 99,30 99,86 51,113 3,86 3,30"/></svg>';
 const speciesSVG='<svg class="species-outline" viewBox="0 0 102 116" aria-hidden="true"><path d="M65 20 92 35v46l-41 23-41-23V35l27-15"/></svg>';
@@ -33,8 +34,28 @@ function candidates(){
   return actions(state).filter(a=>selection.kind==='place'?a.type==='place'&&a.bug===selection.bug:selection.kind==='carry'?a.type==='carry'&&a.via===selection.via&&a.from===selection.from:selection.kind==='move'?a.type==='move'&&a.from===selection.from:false);
 }
 function tile(t,classes=''){
-  const id=`reserve-${t.owner}-${t.type}`;
+  const id=t.id||`reserve-${t.owner}-${t.type}`;
   return `<span class="hex ${t.owner?'dark':''} ${classes}" style="--bug:${TYPES[t.type].color}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><img ${lightAttribute(t.type,id)} src="${artSource(t.type,id)}" alt=""></span>`;
+}
+function guideEntry(type,id='guide'){
+  const bug=TYPES[type];
+  return `<div class="guide-entry"><img ${lightAttribute(type,id)} src="${artSource(type,id)}" alt=""><span><strong>${bug.name}</strong>${bug.hint}</span></div>`;
+}
+function renderPreviews(){
+  const playing=room?.phase==='game',type=playing&&hoverInstructions&&hoveredRule,stack=playing&&state.board[hoveredStack];
+  const layers=stack?.length>1?stack:[],signature=JSON.stringify([type,layers]);
+  if(signature===previewSignature)return;previewSignature=signature;
+  $('hover-rule').hidden=!type;
+  $('hover-rule').innerHTML=type?guideEntry(type,'hover-rule'):'';
+  $('stack-preview').hidden=!layers.length;
+  $('stack-preview').innerHTML=layers.length?`<strong>Stack:</strong><ol class="stack-tiles" aria-label="Bottom to top">${layers.map((piece,i)=>`<li class="stack-piece" style="z-index:${i}" aria-label="${i===0?'Bottom':i===layers.length-1?'Top':'Layer '+(i+1)}: ${esc(state.names[piece.owner])}, ${TYPES[piece.type].name}">${tile(piece,'preview-tile')}</li>`).join('')}</ol>`:'';
+}
+function inspectTile(target){
+  const reserve=target?.closest?.('#tray [data-bug]'),hex=target?.closest?.('#board [data-hex]');
+  if(target?.closest?.('#turn-previews'))return;
+  hoveredRule=reserve?.dataset.bug||null;
+  hoveredStack=hex?.dataset.hex||null;
+  renderPreviews();
 }
 function reserveStack(type,owner,count,selected){
   const depth=Math.max(0,count-1);
@@ -69,9 +90,9 @@ function drawBoard(){
   for(const[k,stack]of Object.entries(state.board)){
     const carrySource=selection?.kind==='carry'&&!selection.from&&carryActions(state,selection.via).some(a=>a.from===k);
     const t=stack.at(-1),css=`${t.owner?'dark':''} ${selection?.from===k||selection?.via===k?'selected':''} ${state.last?.to===k?'last':''} ${targets.has(k)||carrySource?'target':''}`;
-    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}" title="${stack.map(p=>`${state.names[p.owner]}: ${TYPES[p.type].name}`).reverse().map(esc).join(' / ')}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" ${lightAttribute(t.type,t.id)} style="background-image:url('${artSource(t.type,t.id)}')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
+    html+=`<button class="hex ${css}" data-hex="${k}" style="${position(k)}--bug:${TYPES[t.type].color}" aria-label="${esc(state.names[t.owner])} ${TYPES[t.type].name} at ${k}${stack.length>1?', stack of '+stack.length:''}">${speciesSVG}${glowSVG}<span class="tile-letter">${t.type}</span><span class="bug-art" ${lightAttribute(t.type,t.id)} style="background-image:url('${artSource(t.type,t.id)}')"></span>${stack.length>1?`<span class="stack-count">×${stack.length}</span>`:''}${targets.has(k)||carrySource?legalSVG:''}</button>`;
   }
-  board.innerHTML=html;$('first-hint').hidden=state.ply!==0;
+  board.innerHTML=html;$('first-hint').hidden=state.ply!==0;renderPreviews();
 }
 function fit(){
   if(!state||room?.phase!=='game')return;
@@ -98,7 +119,7 @@ function render(){
   $('entrance').hidden=has;$('table').hidden=!has;
   for(const id of ['copy','timer-toggle','undo-toggle','scoreboard-toggle','leave-room'])$(id).hidden=!has;
   $('log-toggle').hidden=!game;$('mode-label').hidden=!has;
-  if(!has){updateClocks();return;}
+  if(!has){hoveredRule=null;hoveredStack=null;renderPreviews();updateClocks();return;}
   $('mode-label').textContent=({online:'Online play',hotseat:'Hot-seat play',bot:'Local game'})[room.mode];
   $('table-code').textContent='Table '+room.code;
   $('turn-number').textContent=game?`Turn ${state.ply+1} · Copy code`:'Lobby · Copy code';
@@ -132,7 +153,7 @@ function render(){
   const reserveOwner=room.mode==='hotseat'?p:room.you,legal=canPlay()?actions(state):[];
   $('reserve-title').textContent=room.mode==='hotseat'?`${state.names[p]}’s reserve`:'Your reserve';
   $('reserve-count').textContent=`${Object.values(state.reserves[reserveOwner]).reduce((a,b)=>a+b,0)} TILES LEFT`;
-  $('tray').innerHTML=Object.entries(TYPES).filter(([k])=>!EXPANSIONS.includes(k)||state.expansions.includes(k)).map(([k,t])=>`<button class="reserve-bug ${selection?.bug===k?'selected':''}" data-bug="${k}" ${!legal.some(a=>a.bug===k)?'disabled':''} aria-label="${t.name}, ${state.reserves[reserveOwner][k]} remaining" aria-pressed="${selection?.bug===k}" title="${t.hint}">${reserveStack(k,reserveOwner,state.reserves[reserveOwner][k],selection?.bug===k)}<span class="bug-name">${k==='A'?'Ant':t.name}</span><span class="count">× ${state.reserves[reserveOwner][k]} remaining</span></button>`).join('');
+  $('tray').innerHTML=Object.entries(TYPES).filter(([k])=>!EXPANSIONS.includes(k)||state.expansions.includes(k)).map(([k,t])=>`<button class="reserve-bug ${selection?.bug===k?'selected':''}" data-bug="${k}" aria-disabled="${!legal.some(a=>a.bug===k)}" aria-label="${t.name}, ${state.reserves[reserveOwner][k]} remaining" aria-pressed="${selection?.bug===k}">${reserveStack(k,reserveOwner,state.reserves[reserveOwner][k],selection?.bug===k)}<span class="bug-name">${k==='A'?'Ant':t.name}</span><span class="count">× ${state.reserves[reserveOwner][k]} remaining</span></button>`).join('');
   const selectedType=selection?.bug||((selection?.via||selection?.from)&&top(state,selection.via||selection.from)?.type);
   $('bug-hint').textContent=selectedType?TYPES[selectedType].hint:'Choose a tile to see where it can go.';
   const via=selection?.via||selection?.from,canCarry=via&&canPlay()&&carryActions(state,via).length>0;
@@ -198,7 +219,7 @@ $('tables').onclick=e=>{const b=e.target.closest('[data-join]');if(b){e.preventD
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>request('settings',{mode:b.dataset.mode,otherName:$('other-name').value}));
 $('other-name').onchange=()=>request('settings',{otherName:$('other-name').value});
 $('start').onclick=()=>request('start',{otherName:$('other-name').value});
-$('tray').onclick=e=>{const b=e.target.closest('[data-bug]');if(!b||b.disabled)return;selection=selection?.bug===b.dataset.bug?null:{kind:'place',bug:b.dataset.bug};sound();render();};
+$('tray').onclick=e=>{const b=e.target.closest('[data-bug]');if(!b||b.getAttribute('aria-disabled')==='true')return;selection=selection?.bug===b.dataset.bug?null:{kind:'place',bug:b.dataset.bug};sound();render();};
 $('undo').onclick=()=>request('undo');$('pass').onclick=()=>request('move',{version:room.version,action:{type:'pass'}});$('rematch').onclick=()=>request('rematch');
 $('carry-toggle').onclick=()=>{const via=selection.via||selection.from;selection=selection.kind==='carry'?{kind:'move',from:via}:{kind:'carry',via};render();};
 $('recenter').onclick=fit;$('zoom-in').onclick=()=>{zoom*=1.2;drawBoard();};$('zoom-out').onclick=()=>{zoom=Math.max(.04,zoom/1.2);drawBoard();};
@@ -215,6 +236,15 @@ for(const b of document.querySelectorAll('[data-close]'))b.onclick=closePanels;
 for(const b of document.querySelectorAll('[data-timer]'))b.onclick=()=>request('settings',{timer:Number(b.dataset.timer)});
 for(const b of document.querySelectorAll('[data-undo]'))b.onclick=()=>request('settings',{undoEnabled:b.dataset.undo==='true'});
 $('help').onclick=()=>$('rules').showModal();document.querySelector('.close').onclick=()=>$('rules').close();
+function renderHoverSetting(){
+  $('hover-instructions').classList.toggle('chosen',hoverInstructions);
+  $('hover-instructions').setAttribute('aria-pressed',String(hoverInstructions));
+}
+$('hover-instructions').onclick=()=>{hoverInstructions=!hoverInstructions;storage.set('hoverInstructions',hoverInstructions);renderHoverSetting();renderPreviews();};
+renderHoverSetting();
+document.addEventListener('pointerover',e=>inspectTile(e.target));
+document.addEventListener('focusin',e=>inspectTile(e.target));
+document.documentElement.addEventListener('pointerleave',()=>{hoveredRule=null;hoveredStack=null;renderPreviews();});
 $('leave-room').onclick=()=>{
   $('leave-message').textContent=room.mode==='online'&&room.seated.filter(Boolean).length===2?'Leaving ends an unfinished game and returns your friend to the lobby. If you are the host, they become the host. Finished-game wins stay on the table.':'Leaving closes this table. You can create a new table from the entrance.';
   $('leave-dialog').showModal();
@@ -240,11 +270,12 @@ for(const[mode,icon]of [['online',InternetIcon],['hotseat',HotseatIcon],['bot',B
 $('rules-picker').innerHTML='<button id="classic-rules"><strong>Classic</strong><small>The original five bug types</small></button>'+EXPANSIONS.map(k=>`<button data-expansion="${k}"><strong>${TYPES[k].name}</strong><small><span>Adds the ${TYPES[k].name}</span><span class="expansion-tile" aria-hidden="true"><span class="hex neutral" style="--bug:${TYPES[k].color}">${speciesSVG}<img src="/art/${k}.png" alt=""></span></span></small></button>`).join('');
 $('classic-rules').onclick=()=>request('settings',{expansions:[]});
 for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{const key=b.dataset.expansion,next=room.expansions.includes(key)?room.expansions.filter(k=>k!==key):[...room.expansions,key];request('settings',{expansions:next});};
-$('bug-guide').innerHTML=Object.entries(TYPES).map(([k,t])=>`<div><img ${lightAttribute(k,'guide')} src="${artSource(k,'guide')}" alt=""><span><strong>${t.name}</strong>${t.hint}</span></div>`).join('');
+$('bug-guide').innerHTML=Object.keys(TYPES).map(k=>guideEntry(k)).join('');
 window.addEventListener('resize',()=>room?.phase==='game'&&fit());
 let fitFrame;
 const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
-for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading')])layoutObserver.observe(element);
+// Hover panels must not recenter a destination underneath the pointer.
+for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading .actions')])layoutObserver.observe(element);
 document.fonts.ready.then(fit);
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){selection=null;closePanels();if(room)render();}});
 let polling=false;

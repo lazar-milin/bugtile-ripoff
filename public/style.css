@@ -106,3 +106,39 @@ main{position:relative;max-width:1500px;margin:auto;padding:14px 32px 30px}.welc
   .queen-hexes{gap:1px}
   .surround-hex{width:7px;height:9px}
 }
+
+/* Inspection stays available while waiting, without enabling an illegal move. */
+*,*::before,*::after{-webkit-user-select:none;user-select:none}
+.reserve-bug[aria-disabled="true"]{opacity:.4;cursor:default}
+.reserve-bug[aria-disabled="true"]:hover{transform:none}
+.hover-instructions{font-size:12px;margin:4px 0 18px}
+.hover-instructions.chosen{background:#d5e4c0;border-color:#6b8a57;color:#304e3b;box-shadow:inset 0 0 0 1px #6b8a57}
+.hand-heading{display:grid;grid-template-columns:minmax(210px,370px) minmax(0,1fr) max-content;grid-template-rows:116px;align-items:center;justify-content:normal}
+.hand-heading>.turn{grid-column:1;grid-row:1;min-width:0}
+.hand-heading .actions{grid-column:3;grid-row:1;margin-left:0;justify-self:end}
+.turn-previews{grid-column:2;grid-row:1;display:flex;align-items:center;gap:10px;max-width:100%;width:fit-content;justify-self:start}
+.turn-previews:has(>[hidden]):not(:has(>:not([hidden]))){display:none}
+.turn-preview{width:max-content;max-width:100%;padding:10px 12px;border:2px solid #c6b38b;border-radius:4px;background:#f8f0dd;box-shadow:0 3px 0 #8e785020}
+.guide-entry{display:flex;align-items:center;gap:12px;font-size:12px;line-height:1.5}
+.guide-entry img{width:54px;height:54px;flex:0 0 54px;object-fit:contain;image-rendering:pixelated}
+.guide-entry strong{display:block;color:#527047;margin-bottom:3px}
+.hover-rule .guide-entry{font-size:11px;gap:10px}
+.hover-rule .guide-entry>span{max-width:28ch}
+.hover-rule .guide-entry img{width:44px;height:44px;flex-basis:44px}
+.stack-preview{display:flex;align-items:center;gap:12px}
+.stack-preview>strong{font-size:12px;font-weight:400;color:#527047}
+.stack-tiles{display:flex;align-items:center;list-style:none;padding:0;margin:0;max-width:100%;overflow-x:auto;overflow-y:hidden}
+.stack-piece{position:relative;flex:0 0 58px;width:58px;height:66px}
+.stack-piece+.stack-piece{margin-left:-14.5px}
+.stack-piece .hex{width:58px;height:66px;--size:58px;left:50%;top:50%;cursor:default;filter:none}
+.stack-piece .hex:hover{filter:none}
+/* Reserve an inspection row on narrow screens, even when no panel is open. */
+@media(max-width:1100px){
+  .hand-heading{grid-template-columns:minmax(0,1fr) max-content;grid-template-rows:80px 116px;row-gap:8px}
+  .hand-heading .actions{grid-column:2;max-width:min(200px,50vw);flex-wrap:wrap}
+  .turn-previews{grid-column:1/-1;grid-row:2}
+}
+@media(max-width:650px){
+  .turn-preview{padding:8px 10px}
+  .hover-rule .guide-entry>span{max-width:26ch}
+}

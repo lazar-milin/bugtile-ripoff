@@ -25,6 +25,7 @@ For two-player testing, open two tabs. Each tab keeps its own seat in session st
 - Online hosts can choose a turn timer. An expired timer makes a legal move automatically. Hot-seat and bot games have no timer.
 - The host can enable or disable Undo before starting. When enabled, your latest move can be undone once within two seconds, until another move happens. The bot waits for this window before replying.
 - The header provides rules help, sound controls, the game log, table scores, and Leave table. Wins and draws carry across rematches. Online rematches require both players.
+- In How to play, enable **Show instructions when hovering a bug.** to inspect any reserve bug beside the turn text, including while waiting for your opponent. The highlighted setting is remembered in your browser. Hover or focus a hive stack to see its tiles from bottom to top, left to right, with a quarter-width overlap. Interface text does not select while interacting with the game.
 - Refreshing keeps your seat; choose **Return to your table**. Leaving an unfinished online game returns the remaining player to the lobby and transfers host when needed. The last person leaving closes the table.
 
 ## Rules and expansions
