@@ -29,7 +29,12 @@ export const server=http.createServer(async(req,res)=>{try{
     // Only lobbies whose host is still connected; an abandoned lobby drops off within a minute.
     if(req.method==='GET'&&endpoint==='tables')return send(res,200,{tables:[...rooms.values()].filter(r=>r.phase==='lobby'&&r.mode==='online'&&r.tokens.filter(Boolean).length===1&&Date.now()-r.updated<config.openTableMs).map(r=>({code:r.code,name:r.state.names[r.host],players:1}))});
     if(req.method==='POST'&&endpoint==='create'){
-      if(rooms.size>=config.maxTables)return send(res,503,{error:'The server is full. Try again later.'});
+      if(rooms.size>=config.maxTables){
+        // Make room by closing the least recently active lobby. Running games are never closed.
+        const idle=[...rooms.values()].filter(r=>r.phase==='lobby').sort((a,b)=>a.updated-b.updated)[0];
+        if(!idle)return send(res,503,{error:'The server is full. Try again later.'});
+        rooms.delete(idle.code);
+      }
       let code;do{code=randomBytes(4).toString('hex').toUpperCase();}while(rooms.has(code));
       const t=token(),r=createTable(code,t,data.name);rooms.set(code,r);return send(res,200,{...tableView(r,t),token:t});
     }

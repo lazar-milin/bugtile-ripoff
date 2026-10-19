@@ -25,7 +25,7 @@ Test online play in two tabs: each holds its own seat in sessionStorage. All mod
 - public/fireflies.js: cosmetic per-piece timers for Firefly artwork. Each light switches after a fresh random 2–20 second delay, independent of turns and DOM redraws. public/art/F.svg is unlit; F-lit.svg is lit. Firefly uses type F, has two tiles per player, and slides exactly three steps without retracing.
 - tests/: base rules, expansion edge cases, table transitions, and two-client HTTP integration tests using Node's built-in runner.
 
-Tables expire without client activity: unstarted lobbies after 10 minutes, games after 24 hours. All tables disappear on restart. server.mjs caps tables at 500 and lists an open table only while its host is connected; config holds these limits so tests can shorten them. Run one server process. No database, account system, external service, or Discord SDK is involved.
+Tables expire without client activity: unstarted lobbies after 10 minutes, games after 24 hours. All tables disappear on restart. server.mjs caps tables at 500, closing the least recently active lobby to make room and refusing only when every table is a running game. It lists an open table only while its host is connected; config holds these limits so tests can shorten them. Run one server process. No database, account system, external service, or Discord SDK is involved.
 
 ## Rules conventions
 
