@@ -144,3 +144,13 @@ main{position:relative;max-width:1500px;margin:auto;padding:14px 32px 30px}.welc
   .turn-preview{padding:8px 10px}
   .hover-rule .guide-entry>span{max-width:26ch}
 }
+
+/* Narrow tables use a single title line above the full-width control row. */
+@media(max-width:1050px){
+  .table-screen #header{grid-template-columns:minmax(0,1fr);row-gap:8px}
+  .table-screen #header .header-left{grid-column:1;flex-direction:row;align-items:baseline;gap:12px;min-width:0}
+  .table-screen #header .brand{white-space:nowrap}
+  .table-screen #header #mode-label{flex:0 0 auto}
+  .table-screen #header .header-controls{grid-column:1;width:100%;max-width:100%;justify-content:safe flex-end}
+  .table-screen .floating-panel{top:calc(var(--header-height,100px) + 12px);max-height:calc(100dvh - var(--header-height,100px) - 24px)}
+}

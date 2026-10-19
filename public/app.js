@@ -273,7 +273,7 @@ for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{cons
 $('bug-guide').innerHTML=Object.keys(TYPES).map(k=>guideEntry(k)).join('');
 window.addEventListener('resize',()=>room?.phase==='game'&&fit());
 let fitFrame;
-const layoutObserver=new ResizeObserver(()=>{cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
+const layoutObserver=new ResizeObserver(()=>{document.documentElement.style.setProperty('--header-height',`${$('header').offsetHeight}px`);cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
 // Hover panels must not recenter a destination underneath the pointer.
 for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading .actions')])layoutObserver.observe(element);
 document.fonts.ready.then(fit);
