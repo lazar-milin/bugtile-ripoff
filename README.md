@@ -6,7 +6,7 @@ Working on the code, or pointing a coding agent at it? Start with [CLAUDE.md](CL
 
 ## Play locally
 
-Requires **Node.js 22+**. No package installation or build step is needed.
+Requires **Node.js 22.9+**. No package installation or build step is needed.
 
 ```sh
 git clone https://github.com/lazar-milin/bugtile-ripoff.git
@@ -17,6 +17,17 @@ npm start
 Open **http://127.0.0.1:3007**. On Windows you can also double-click **Start BugTile Rip-off.cmd**. Keep the server running while playing. Set `PORT` to use a different port.
 
 For two-player testing, open two tabs. Each tab keeps its own seat in session storage. Friends on the same network can use the LAN address printed by the server; internet play requires running this Node server on a host reachable by both players. GitHub hosts the source code, not a running game server.
+
+## Run inside Discord
+
+BugTile can run as a Discord Activity, the same way as Birdcard: Discord's proxy at `<app-id>.discordsays.com` forwards to this Node server on an HTTPS host such as Render.
+
+1. Copy `.env.example` to `.env` (or set the same variables on your host). Set `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` from the Discord Developer Portal. Keep the secret on the server only; never commit it. Set `ALLOW_GUESTS=false` to make the host Discord-only.
+2. Start with `npm start`, which loads `.env` when present. A static-only host is not enough.
+3. In the [Developer Portal](https://discord.com/developers/applications), enable Activities, map the root `/` to your HTTPS host (this covers `/api/` too), and add the OAuth redirect `https://127.0.0.1`.
+4. Launch the Activity from a voice channel. It signs in with your Discord account, and your Discord name replaces the name field. Share a table code or pick an open table as usual.
+
+`public/discord-sdk.js` is Discord's Embedded App SDK, bundled and committed so local play needs no install. To update it, run `npm install && npm run build`. See [Discord's Activity guide](https://docs.discord.com/developers/activities/building-an-activity).
 
 ## Tables and controls
 
@@ -54,12 +65,12 @@ Tests cover the base rules, all three expansions, table lifecycle, names, timers
 
 ## Artwork and sound
 
-Bug illustrations are supplied project artwork in `public/art/`. The VCR OSD Mono font, pixel interface icons, and sound cues follow [Birdcard Rip-off](https://github.com/lazar-milin/birdcard-ripoff). Sound cues come from Kenney's CC0 Interface Sounds; their license is retained in [public/audio/LICENSE.txt](public/audio/LICENSE.txt).
+Bug illustrations are supplied project artwork, stored as vector pixel-art SVGs in `public/art/`. The VCR OSD Mono font, pixel interface icons, and sound cues follow [Birdcard Rip-off](https://github.com/lazar-milin/birdcard-ripoff). VCR OSD Mono is by Riciery Leal (MrManet) and is listed as 100% Free on [DaFont](https://www.dafont.com/vcr-osd-mono.font); see [public/fonts/LICENSE.txt](public/fonts/LICENSE.txt). Sound cues come from Kenney's CC0 Interface Sounds; their license is retained in [public/audio/LICENSE.txt](public/audio/LICENSE.txt).
 
 Code follows Birdcard's GPL-3.0 licensing; see [LICENSE](LICENSE). Third-party assets retain their own terms.
 
 ## Prototype limits
 
-Tables are held in memory by a single server process and disappear on restart. A lobby closes after 10 minutes with nobody at it, and a game after 24 hours. The server holds up to 500 tables; when it is full, a lobby whose host has left closes to make room, and Open tables shows a table only while its host is still there. The bot uses a lightweight heuristic. There are no accounts, persistent scores, spectators, or Discord integration.
+Tables are held in memory by a single server process and disappear on restart. A lobby closes after 10 minutes with nobody at it, and a game after 24 hours. The server holds up to 500 tables; when it is full, a lobby whose host has left closes to make room, and Open tables shows a table only while its host is still there. The bot uses a lightweight heuristic. There are no accounts, persistent scores, or spectators. The Discord Activity flow mirrors Birdcard's but still needs a first launch inside Discord to confirm it.
 
 Hive was created by John Yianni and published by Gen42. This is an unofficial fan-made prototype.

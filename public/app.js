@@ -4,6 +4,9 @@ import {createFireflyLights} from './fireflies.js';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const storage={get(k){try{return JSON.parse((k==='room'?sessionStorage:localStorage).getItem('hive-garden:'+k));}catch{return null;}},set(k,v){try{(k==='room'?sessionStorage:localStorage).setItem('hive-garden:'+k,JSON.stringify(v));}catch{}}};
+// discord holds the SDK and the server-verified identity when running as a Discord Activity.
+// entryLock is a message that keeps the entrance closed, for example while signing in.
+let discord=null,entryLock='';
 let room=null,state=null,busy=false,selection=null,pan={x:0,y:0},zoom=1,offset=0,epoch=0,noticeTimer=null,muted=storage.get('muted')??true;
 let hoverInstructions=storage.get('hoverInstructions')??false,hoveredRule=null,hoveredStack=null,previewSignature='';
 const hostGem='<svg class="host-gem" viewBox="0 0 16 18" role="img" aria-label="Host"><path d="M4 1h8v2h3v8l-2 2-5 4-5-4-2-2V3h3z" fill="currentColor"/><path d="M5 4h6v6l-3 3-3-3z" fill="#fff4bc"/><path d="M5 4h3v9l-3-3z" fill="#d9b34b"/></svg>';
@@ -186,9 +189,9 @@ async function request(endpoint,data={}){
   catch(e){notice(e.message);}finally{busy=false;if(room)render();}
 }
 async function enter(create,code=''){
-  if(busy)return;const name=$('name').value.trim();busy=true;$('create').disabled=true;$('join').disabled=true;
-  try{const saved=storage.get('room');const next=await api(create?'create':'join',{name,code},!create&&saved?.code===code?saved.token:undefined);storage.set('name',next.state.names[next.you]);renderName();epoch++;room=null;state=null;busy=false;accept(next,true);sound('confirmation_001');}
-  catch(e){notice(e.message);}finally{busy=false;$('create').disabled=false;$('join').disabled=false;}
+  if(entryLock)return notice(entryLock);if(busy)return;const name=$('name').value.trim();busy=true;$('create').disabled=true;$('join').disabled=true;
+  try{const saved=storage.get('room');const next=await api(create?'create':'join',{name,code,...(discord?{identity:discord.identity}:{})},!create&&saved?.code===code?saved.token:undefined);storage.set('name',next.state.names[next.you]);renderName();epoch++;room=null;state=null;busy=false;accept(next,true);sound('confirmation_001');}
+  catch(e){notice(e.message);}finally{busy=false;$('create').disabled=!!entryLock;$('join').disabled=!!entryLock;}
 }
 async function refreshTables(){
   if(room)return;try{const result=await api('tables');if(room)return;$('tables').innerHTML=result.tables.length?`<div class="table-list">${result.tables.map(t=>`<article class="open-patch"><a href="#table-${esc(t.code)}" data-join="${esc(t.code)}" class="open-table"><span class="patch-grass" aria-hidden="true"></span><strong>Table ${esc(t.code)}</strong><small>${esc(t.name)} · 1/2 players</small><span class="patch-join">Take a seat →</span></a></article>`).join('')}</div>`:'<p>No open tables yet. Create one!</p>';}
@@ -258,7 +261,9 @@ $('copy').onclick=async()=>{try{await navigator.clipboard.writeText(room.code);n
 $('resume').onclick=async()=>{
   if(busy)return;busy=true;try{const saved=storage.get('room');if(!saved)throw Error('No saved table.');const next=await api('state?code='+saved.code,undefined,saved.token);epoch++;room={token:saved.token};busy=false;accept(next,true);}catch(e){notice(e.message);storage.set('room',null);$('resume').hidden=true;}finally{busy=false;}
 };
-function renderName(){const saved=storage.get('name');$('name').disabled=!!saved;$('clear-name').hidden=!saved;if(saved)$('name').value=saved;}
+function renderName(){
+  if(discord){$('name').value=discord.name;$('name').disabled=true;$('clear-name').hidden=true;return;}
+  const saved=storage.get('name');$('name').disabled=!!saved;$('clear-name').hidden=!saved;if(saved)$('name').value=saved;}
 $('clear-name').onclick=()=>{storage.set('name',null);$('name').value='';renderName();$('name').focus();};
 $('timer-toggle').innerHTML=ClockIcon+'<span class="control-label">Turn timer</span>';
 $('log-toggle').innerHTML=ScrollIcon+'<span class="control-label">Game log</span>';
@@ -288,4 +293,27 @@ setInterval(async()=>{
   finally{if(poll===current)poll=null;}
 },350);
 setInterval(updateClocks,50);setInterval(refreshTables,5000);
-$('name').value=storage.get('name')||'';renderName();$('resume').hidden=!storage.get('room');render();refreshTables();
+function lockEntrance(message){
+  entryLock=message;$('entry-status').textContent=message;$('entry-status').hidden=!message;
+  for(const id of ['create','join','resume'])$(id).disabled=!!message;
+}
+// Discord's frame blocks ordinary navigation away, so the SDK asks Discord to open external links.
+document.addEventListener('click',e=>{const link=e.target.closest?.('a[target="_blank"]');if(link&&discord){e.preventDefault();discord.sdk.commands.openExternalLink({url:link.href}).catch(()=>{});}});
+// Inside Discord (its Activity frame adds frame_id to the URL), sign in through the Embedded App SDK:
+// ready, authorize, a server-side code exchange, then authenticate. Outside Discord, guests play when allowed.
+async function boot(){
+  const inDiscord=new URLSearchParams(location.search).has('frame_id');
+  if(inDiscord)lockEntrance('Signing in with Discord…');
+  try{
+    const cfg=await api('config');
+    if(!inDiscord){if(!cfg.guests)lockEntrance('Open this game inside Discord.');return;}
+    if(!cfg.clientId)throw Error('Discord Client ID is missing on the server.');
+    const {DiscordSDK}=await import('/discord-sdk.js'),sdk=new DiscordSDK(cfg.clientId);
+    await sdk.ready();
+    const {code}=await sdk.commands.authorize({client_id:cfg.clientId,response_type:'code',state:'',prompt:'none',scope:['identify']});
+    const login=await api('login',{code});
+    await sdk.commands.authenticate({access_token:login.access_token});
+    discord={sdk,identity:login.identity,name:login.name};renderName();lockEntrance('');
+  }catch(e){lockEntrance(inDiscord?`Discord sign-in failed: ${e.message}`:e.message);}
+}
+$('name').value=storage.get('name')||'';renderName();$('resume').hidden=!storage.get('room');render();refreshTables();boot();

@@ -77,3 +77,32 @@ test('Static files can be revalidated with an ETag instead of downloaded again',
     const stale=await fetch(base+'/art/Q.svg',{headers:{'If-None-Match':'"stale"'}});assert.equal(stale.status,200);await stale.text();
   }finally{await close();}
 });
+test('Every response forbids MIME sniffing and sends no referrer',async()=>{
+  const {base,close}=await open();
+  try{
+    for(const path of ['/','/art/Q.svg','/api/tables','/missing']){
+      const r=await fetch(base+path);await r.arrayBuffer();
+      assert.equal(r.headers.get('x-content-type-options'),'nosniff',path);assert.equal(r.headers.get('referrer-policy'),'no-referrer',path);
+    }
+  }finally{await close();}
+});
+test('Discord sign-in names the player and can be required instead of guest play',async()=>{
+  const {call,close}=await open(),realFetch=globalThis.fetch,guests=config.guests;
+  process.env.DISCORD_CLIENT_ID='app-1';process.env.DISCORD_CLIENT_SECRET='secret';
+  // Stand-in for Discord's OAuth and user endpoints; every other request goes to the real network stack.
+  globalThis.fetch=async(url,init)=>{
+    if(String(url)==='https://discord.com/api/oauth2/token'){const code=new URLSearchParams(String(init.body)).get('code');return new Response(JSON.stringify(code==='good'?{access_token:'discord-token'}:{error:'invalid_grant'}),{status:code==='good'?200:400});}
+    if(String(url)==='https://discord.com/api/v10/users/@me')return new Response(JSON.stringify({id:'42',username:'ogi',global_name:'Ognjen'}));
+    return realFetch(url,init);
+  };
+  try{
+    assert.deepEqual((await call('config')).body,{clientId:'app-1',guests:true});
+    const bad=await call('login',{code:'bad'});assert.equal(bad.status,400);assert.equal(bad.body.error,'Discord authorization failed. Reopen the Activity.');
+    const login=(await call('login',{code:'good'})).body;assert.equal(login.name,'Ognjen');assert.equal(login.access_token,'discord-token');assert.match(login.identity,/^[a-f0-9]{36}$/);
+    config.guests=false;assert.equal((await call('config')).body.guests,false);
+    const guest=await call('create',{name:'Fern'});assert.equal(guest.status,403);assert.equal(guest.body.error,'Open this game inside Discord.');
+    const host=(await call('create',{name:'Not Ognjen',identity:login.identity})).body;assert.equal(host.state.names[0],'Ognjen');
+    const stale=await call('join',{code:host.code,name:'Moss',identity:'expired'});assert.equal(stale.status,401);assert.equal(stale.body.error,'Discord sign-in expired. Reopen the Activity.');
+    await call('leave',{code:host.code},host.token);
+  }finally{globalThis.fetch=realFetch;config.guests=guests;delete process.env.DISCORD_CLIENT_ID;delete process.env.DISCORD_CLIENT_SECRET;await close();}
+});
