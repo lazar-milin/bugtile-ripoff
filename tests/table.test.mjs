@@ -31,3 +31,8 @@ test('Unstarted lobbies close after ten idle minutes while games keep a day',()=
   tickTables(rooms,600000);assert(rooms.has('LOBBY'));tickTables(rooms,600001);assert(!rooms.has('LOBBY'));assert(rooms.has('TEST'));
 });
 test('Snapshots leave out the server-only repetition history',()=>{const r=local();moveTable(r,0,opening,r.version,100);assert(Object.keys(r.state.repetitions).length);assert(!('repetitions' in tableView(r,'host').state));});
+test('Undo returns the time that was left instead of restarting the turn timer',()=>{
+  const r=createTable('TEST','host','Fern',0);configure(r,0,{timer:30},0);joinTable(r,'guest','Moss',0);startTable(r,0,{},0);
+  moveTable(r,0,opening,r.version,27000);assert.equal(r.deadline,57000);undoTable(r,0,28000);assert.equal(r.deadline,30000);
+  tickTable(r,30000);assert.equal(r.state.ply,1);assert.match(r.state.log[0],/timer/);
+});
