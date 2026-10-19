@@ -19,6 +19,20 @@ const fireflies=createFireflyLights({onChange:(id,src)=>{
 for(const src of ['/art/F.svg','/art/F-lit.svg']){const preload=new Image();preload.src=src;}
 const artSource=(type,id)=>type==='F'?fireflies.src(id):`/art/${type}.svg`;
 const lightAttribute=(type,id)=>type==='F'?`data-firefly="${esc(id)}"`:'';
+function updateHeaderLayout(){
+  const header=$('header');
+  if(!room){header.classList.remove('compact-header');return;}
+  const controls=header.querySelector('.header-controls'),style=getComputedStyle(header),controlStyle=getComputedStyle(controls);
+  const children=[...controls.children].filter(node=>!node.hidden);
+  const width=children.reduce((total,node)=>{
+    const label=node.querySelector('.control-label'),nodeStyle=getComputedStyle(node);
+    // Hover expansion scrolls within the row; it must not switch header layouts.
+    return total+node.getBoundingClientRect().width+parseFloat(nodeStyle.marginLeft)+parseFloat(nodeStyle.marginRight)-(label?label.getBoundingClientRect().width+parseFloat(getComputedStyle(label).marginLeft):0);
+  },0)+(children.length-1)*parseFloat(controlStyle.columnGap)+parseFloat(controlStyle.paddingLeft)+parseFloat(controlStyle.paddingRight);
+  const title=Math.max(header.querySelector('.brand').scrollWidth,$('mode-label').scrollWidth);
+  const available=header.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+  header.classList.toggle('compact-header',title+parseFloat(style.columnGap)+width>available);
+}
 function sound(kind='select_001'){if(!muted)new Audio(`/audio/${kind}.ogg`).play().catch(()=>{});}
 function notice(message){$('notice').textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',5000);}
 function now(){return Date.now()+offset;}
@@ -119,7 +133,7 @@ function render(){
   $('entrance').hidden=has;$('table').hidden=!has;
   for(const id of ['copy','timer-toggle','undo-toggle','scoreboard-toggle','leave-room'])$(id).hidden=!has;
   $('log-toggle').hidden=!game;$('mode-label').hidden=!has;
-  if(!has){hoveredRule=null;hoveredStack=null;renderPreviews();updateClocks();return;}
+  if(!has){hoveredRule=null;hoveredStack=null;renderPreviews();updateClocks();updateHeaderLayout();return;}
   $('mode-label').textContent=({online:'Online play',hotseat:'Hot-seat play',bot:'Local game'})[room.mode];
   $('table-code').textContent='Table '+room.code;
   $('turn-number').textContent=game?`Turn ${state.ply+1} · Copy code`:'Lobby · Copy code';
@@ -146,7 +160,7 @@ function render(){
   $('score-meta').textContent=`Round ${room.round} · ${room.draws} ${room.draws===1?'draw':'draws'}`;
   $('scores').innerHTML=state.names.map((n,i)=>`<li><span>${i===room.host?hostGem:room.mode==='bot'?BotIcon:''}${esc(n)}</span><strong>${room.wins[i]} ${room.wins[i]===1?'win':'wins'}</strong></li>`).join('');
   $('log').innerHTML=state.log.length?state.log.map((line,i)=>`<li><span class="log-seq">${i+1}.</span>${esc(line)}</li>`).join(''):'<li>No moves yet.</li>';
-  if(!game){updateClocks();return;}
+  if(!game){updateClocks();updateHeaderLayout();return;}
   const ended=state.result!==null,p=state.turn,forced=state.turns[p]>=3&&state.reserves[p].Q;
   $('turn-title').textContent=ended?(state.result==='draw'?'A draw.':`${state.names[state.result]} wins!`):room.mode==='bot'&&p!==room.host?`${state.names[p]} is thinking…`:`${state.names[p]}’s turn`;
   $('turn-hint').textContent=ended?'The result has been added to the table scoreboard.':forced?'Your fourth turn: place your queen.':state.reserves[p].Q?'Place a bug. Your queen must arrive by your fourth turn.':'Place a bug from your reserve, or select one in the hive to move.';
@@ -165,7 +179,7 @@ function render(){
   $('pass').hidden=!canPlay()||legal[0]?.type!=='pass';$('rematch').hidden=!ended;
   $('rematch').disabled=busy||room.rematch.includes(room.you);
   $('rematch').textContent=room.rematch.includes(room.you)?'Rematch requested':'Rematch';
-  updateClocks();drawBoard();
+  updateClocks();updateHeaderLayout();drawBoard();
 }
 function updateClocks(){
   const undo=room?.undoEnabled&&room?.phase==='game'&&room.undoUntil>now();$('undo').hidden=!undo;
@@ -273,10 +287,10 @@ for(const b of document.querySelectorAll('[data-expansion]'))b.onclick=()=>{cons
 $('bug-guide').innerHTML=Object.keys(TYPES).map(k=>guideEntry(k)).join('');
 window.addEventListener('resize',()=>room?.phase==='game'&&fit());
 let fitFrame;
-const layoutObserver=new ResizeObserver(()=>{document.documentElement.style.setProperty('--header-height',`${$('header').offsetHeight}px`);cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
+const layoutObserver=new ResizeObserver(()=>{updateHeaderLayout();document.documentElement.style.setProperty('--header-height',`${$('header').offsetHeight}px`);cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(fit);});
 // Hover panels must not recenter a destination underneath the pointer.
 for(const element of [$('header'),$('players'),$('reserve'),document.querySelector('.hand-heading .actions')])layoutObserver.observe(element);
-document.fonts.ready.then(fit);
+document.fonts.ready.then(()=>{updateHeaderLayout();fit();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){selection=null;closePanels();if(room)render();}});
 // Long poll: one request at a time, answered when the table changes or after about 25 seconds.
 // A request still held for a table you left does not block polling the new one.
